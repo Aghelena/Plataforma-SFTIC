@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --card:#0f172a;
+}
+body{ @apply bg-slate-900 text-slate-100; }
+.card{ @apply bg-slate-900/60 border border-slate-700 rounded-2xl; }
+.stat-pill{ @apply rounded-full px-2 py-0.5 text-xs font-semibold; }
+.stat-pill.ok{ @apply bg-green-600/20 text-green-400; }
+.stat-pill.warn{ @apply bg-amber-600/20 text-amber-400; }
+.stat-pill.danger{ @apply bg-rose-600/20 text-rose-400; }
+
+/* High contrast */
+body.hc{ background:#000 !important; color:#fff !important; }
+body.hc .card{ background:#111 !important; border-color:#fff !important; }
+:focus-visible{ outline:3px solid #2563eb; outline-offset:2px; border-radius:.25rem; }
+
+.overscroll-contain { overscroll-behavior: contain; }
+/* Evitar que a rodinha mude numbers (e ainda poder rolar) */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* === CONTRASTE: base com variáveis === */
+:root {
+  --c-bg: #ffffff;        /* fundo padrão */
+  --c-card: #0f172a;      /* cartões */
+  --c-text: #000000;      /* texto principal */
+  --c-muted: #cbd5e1;     /* texto secundário */
+  --c-border: #334155;    /* bordas */
+  --c-accent: #3b82f6;    /* botões/acento */
+  --c-accent-text: #000;  /* texto no acento */
+}
+
+/* Alto contraste escuro: branco no preto */
+.contrast-hc-dark {
+  --c-bg: #000;
+  --c-card: #000;
+  --c-text: #fff;
+  --c-muted: #fff;
+  --c-border: #fff;
+  --c-accent: #fff;
+  --c-accent-text: #000;
+}
+
+/* Alto contraste claro: preto no branco */
+.contrast-hc-light {
+  --c-bg: #fff;
+  --c-card: #fff;
+  --c-text: #000;
+  --c-muted: #000;
+  --c-border: #000;
+  --c-accent: #000;
+  --c-accent-text: #fff;
+}
+
+/* Preto / Amarelo (clássico) */
+.contrast-black-yellow {
+  --c-bg: #000;
+  --c-card: #000;
+  --c-text: #ff0;
+  --c-muted: #ff0;
+  --c-border: #ff0;
+  --c-accent: #ff0;
+  --c-accent-text: #000;
+}
+
+/* Ciano / Preto */
+.contrast-cyan-black {
+  --c-bg: #000;
+  --c-card: #000;
+  --c-text: #00ffff;
+  --c-muted: #00ffff;
+  --c-border: #00ffff;
+  --c-accent: #00ffff;
+  --c-accent-text: #000;
+}
+
+/* Magenta / Preto */
+.contrast-magenta-black {
+  --c-bg: #000;
+  --c-card: #000;
+  --c-text: #ff00ff;
+  --c-muted: #ff00ff;
+  --c-border: #ff00ff;
+  --c-accent: #ff00ff;
+  --c-accent-text: #000;
+}
+
+/* === REGRAS DE OVERRIDE (funciona com Tailwind pronto) === */
+[class*="contrast-"] body,
+[class*="contrast-"] .min-h-screen {
+  background-color: var(--c-bg) !important;
+  color: var(--c-text) !important;
+}
+
+/* cartões/painéis */
+[class*="contrast-"] .card {
+  background-color: var(--c-card) !important;
+  color: var(--c-text) !important;
+  border-color: var(--c-border) !important;
+}
+
+/* textos “slate” viram texto/muted de alto contraste */
+[class*="contrast-"] .text-slate-200,
+[class*="contrast-"] .text-slate-300,
+[class*="contrast-"] .text-slate-400 {
+  color: var(--c-muted) !important;
+}
+
+/* fundos “slate” dos inputs/áreas */
+[class*="contrast-"] .bg-slate-900,
+[class*="contrast-"] .bg-slate-800,
+[class*="contrast-"] .bg-slate-700 {
+  background-color: var(--c-card) !important;
+  color: var(--c-text) !important;
+  border-color: var(--c-border) !important;
+}
+
+/* bordas “slate” */
+[class*="contrast-"] .border-slate-700,
+[class*="contrast-"] .border-slate-800 {
+  border-color: var(--c-border) !important;
+}
+
+/* botões principais (azul/rose/etc) -> usam a cor de acento única do tema */
+[class*="contrast-"] [class*="bg-blue-"],
+[class*="contrast-"] [class*="bg-rose-"],
+[class*="contrast-"] [class*="bg-green-"],
+[class*="contrast-"] [class*="bg-emerald-"],
+[class*="contrast-"] [class*="bg-indigo-"] {
+  background-color: var(--c-accent) !important;
+  color: var(--c-accent-text) !important;
+  border-color: var(--c-border) !important;
+}
+[class*="contrast-"] [class*="hover\\:bg-blue-"]:hover,
+[class*="contrast-"] [class*="hover\\:bg-rose-"]:hover,
+[class*="contrast-"] [class*="hover\\:bg-green-"]:hover,
+[class*="contrast-"] [class*="hover\\:bg-emerald-"]:hover,
+[class*="contrast-"] [class*="hover\\:bg-indigo-"]:hover {
+  filter: brightness(0.85) !important;
+}
+
+/* foco bem visível */
+[class*="contrast-"] :focus-visible {
+  outline: 3px solid var(--c-accent) !important;
+  outline-offset: 2px;
+}
+
+/* links */
+[class*="contrast-"] a { color: var(--c-accent) !important; }
