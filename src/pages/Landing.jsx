@@ -1,8 +1,9 @@
 // src/pages/Landing.jsx
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { store } from "../lib/store";
+import { speak } from "../lib/speech";
+import logo from "../assets/logosfitc.png";
 
 // --- Componente de diálogo genérico ---
 function Dialog({ open, title, children, actions, onClose }) {
@@ -29,16 +30,16 @@ function Dialog({ open, title, children, actions, onClose }) {
   );
 }
 
-function GamePill({ title, color, to }) {
+// --- Cada bloco colorido ---
+function GamePill({ title, color, onClick }) {
   return (
-    <Link
-      to={to}
-      className="block rounded-[36px] focus:outline-none focus:ring-2 focus:ring-white/40"
+    <button
+      onClick={onClick}
+      className="block rounded-[36px] focus:outline-none focus:ring-2 focus:ring-white/40 transition-transform hover:scale-[1.03]"
+      style={{ backgroundColor: color }}
+      aria-label={`Abrir ${title}`}
     >
-      <div className="relative rounded-[36px] overflow-hidden shadow-xl ring-1 ring-white/10">
-        {/* bloco sólido na cor escolhida */}
-        <div className="h-28 w-full" style={{ backgroundColor: color }} />
-        {/* brilho sutil */}
+      <div className="relative rounded-[36px] overflow-hidden shadow-xl ring-1 ring-white/10 w-full h-28">
         <div
           className="pointer-events-none absolute inset-0
                       bg-[radial-gradient(120%_80%_at_0%_0%,rgba(255,255,255,.25),transparent_60%)]"
@@ -47,70 +48,65 @@ function GamePill({ title, color, to }) {
           {title}
         </div>
       </div>
-    </Link>
+    </button>
   );
 }
 
-function LandingTopbar({ onLogin, onSignup }) {
+// --- Topbar ---
+function LandingTopbar() {
   return (
-    <header className="sticky top-0 z-40 bg-[#3b0b6b] bg-opacity-90 backdrop-blur border-b border-white/10">  
+    <header className="sticky top-0 z-40 bg-sky-500 bg-opacity-90 backdrop-blur border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-white text-lg font-bold">
+        {/* Esquerda: logo + título */}
+        <Link to="/" className="flex items-center text-white gap-3 group">
+          <img
+            src={logo}
+            alt="Logo da Plataforma Inclusiva"
+            className="h-12 w-auto filter "
+            draggable="false"
+          />
+          <span className="text-black text-lg font-bold tracking-tight group-hover:opacity-90">
             Plataforma Inclusiva
           </span>
-          <nav className="hidden md:flex items-center gap-4 text-sm text-white/80">
-            <Link
-              to="/login"
-              className="w-12 h-12 grid place-items-center font-bold text-white"
-            >
-              Admin
-            </Link>
-          </nav>
-        </div>
+        </Link>
+
+        {/* Direita: navegação */}
+        <nav className="flex items-center gap-1">
+          <Link
+            to="/login"
+            className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold"
+            aria-label="Área administrativa"
+          >
+            Admin
+          </Link>
+        </nav>
       </div>
     </header>
   );
 }
 
+// --- Página principal ---
 export default function Landing() {
   const navigate = useNavigate();
 
   const games = useMemo(
     () => [
-      { title: "Quiz", color: "#ef4444" }, // red-500
-      { title: "Tic Tac Toe XXO", color: "#f59e0b" }, // amber-500
-      { title: "Smiling Class", color: "#10b981" }, // emerald-500
-      { title: "8 Ball Pro", color: "#3b82f6" }, // blue-500
-      { title: "Color Link", color: "#8b5cf6" }, // violet-500
-      { title: "Bloxorz", color: "#ec4899" }, // pink-500
-      { title: "Mad Fish", color: "#14b8a6" }, // teal-500
-      { title: "Chess", color: "#84cc16" }, // lime-500
-      { title: "Forest Temple", color: "#f472b6" }, // pink-400
-      { title: "Light Temple", color: "#22d3ee" }, // cyan-400
-      { title: "4 Colors", color: "#a3e635" }, // lime-400
-      { title: "Moto X3M", color: "#60a5fa" }, // blue-400
+      { title: "Quiz", color: "#ef4444" },
+      { title: "Jogo da Memória", color: "#f59e0b" },
+      { title: "Forca", color: "#fc03f4" },
+      { title: "Candy Crush", color: "#1f0ac2" },
+      { title: "-", color: "#3c3a4a" },
+      { title: "-", color: "#732836" },
+      { title: "-", color: "#28521c" },
+      { title: "-", color: "#c2ebb7" },
+      { title: "-", color: "#076ab8" },
     ],
     []
   );
 
-  // helpers simples de auth usando localStorage
-  function getUsers() {
-    return store.get("users", []);
-  }
-  function setUsers(arr) {
-    store.set("users", arr);
-  }
-  function setCurrentUser(user) {
-    store.set("currentUser", user);
-  }
-
   return (
-    <div className="min-h-screen flex flex-col bg-[#ffffff]">
-      <LandingTopbar
-        onLogin={() => setLoginOpen(true)}
-        onSignup={() => setSignupOpen(true)}
-      />
+    <div className="min-h-screen flex flex-col bg-white">
+      <LandingTopbar />
 
       {/* Hero + grade */}
       <main className="flex-1">
@@ -124,13 +120,37 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {games.map((g, i) => (
-              <GamePill key={i} {...g} />
+          {/* grade de jogos */}
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {games.map((g) => (
+              <GamePill
+                key={g.id ?? g.title} // evite usar o índice
+                title={g.title}
+                color={g.color}
+                onClick={() => {
+                  if (g.title === "Quiz") {
+                    speak("Abrindo o quiz.");
+                    navigate("/user");
+                  } else if (g.title === "Jogo da Memória") {
+                    speak("Abrindo jogo da memória.");
+                    navigate("/memory");
+                  } else if (g.title === "Forca") {
+                    speak("Abrindo o jogo da forca.");
+                    navigate("/forca");
+                  } else {
+                    speak(
+                      `O jogo ${g.title} ainda será adicionado futuramente.`
+                    );
+                  }
+                  if (g.title === "Candy Crush") {
+                    speak("Abrindo Candy Crush.");
+                    navigate("/candy");
+                  } else {
+                  }
+                }}
+              />
             ))}
           </div>
-
-          <div className="mt-8 flex justify-center"></div>
         </section>
       </main>
 

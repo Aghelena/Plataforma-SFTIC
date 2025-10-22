@@ -1,33 +1,38 @@
-import { Link } from "react-router-dom";
-import ContrastSwitcher from "./ContrastSwitcher";
+import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
+import { Volume2, VolumeX } from "lucide-react";
+import { speak, stopSpeak } from "../lib/speech";
 
 export default function Topbar() {
+  const [reading, setReading] = useState(false);
+  const location = useLocation();
+
+  // Esconde o leitor no Admin
+  if (location.pathname.startsWith("/admin")) {
+    return null;
+  }
+
   return (
-    <header className="bg-slate-950/40 border-b border-slate-800 sticky top-0 z-10">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-        <Link
-          to="/"
-          className="w-9 h-9 rounded-xl bg-blue-600 grid place-items-center font-bold"
+    <header className="bg-white border-b border-slate-200 shadow-sm">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <h1 className="font-semibold text-slate-800">Plataforma SFTIC</h1>
+
+        <button
+          onClick={() => {
+            const active = !reading;
+            setReading(active);
+            if (active) speak("Leitor de voz ativado. Selecione um texto para ouvir.");
+            else stopSpeak();
+          }}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition ${
+            reading
+              ? "bg-sky-100 text-sky-700 hover:bg-sky-200"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
         >
-          S
-        </Link>
-
-        <nav className="ml-auto flex items-center gap-3">
-          <Link
-            to="/admin"
-            className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700"
-          >
-            Admin
-          </Link>
-          {/* <Link
-            to="/user"
-            className="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600"
-          >
-            Usuário
-          </Link> */}
-
-          <ContrastSwitcher />
-        </nav>
+          {reading ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          {reading ? "Leitor ON" : "Leitor OFF"}
+        </button>
       </div>
     </header>
   );
