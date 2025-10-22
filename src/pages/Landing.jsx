@@ -56,7 +56,7 @@ function GamePill({ title, color, onClick }) {
 function LandingTopbar() {
   return (
     <header className="sticky top-0 z-40 bg-sky-500 bg-opacity-90 backdrop-blur border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto bg-gradient-to-b from-sky-100px-4 h-14 flex items-center justify-between">
         {/* Esquerda: logo + título */}
         <Link to="/" className="flex items-center text-white gap-3 group">
           <img
@@ -105,11 +105,11 @@ export default function Landing() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen  flex flex-col bg-white">
       <LandingTopbar />
 
       {/* Hero + grade */}
-      <main className="flex-1">
+      <main className="flex-1 ">
         <section className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center text-black">
             <h1 className="text-3xl md:text-4xl font-extrabold">
@@ -121,7 +121,7 @@ export default function Landing() {
           </div>
 
           {/* grade de jogos */}
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-5 grid gap-5  sm:grid-cols-2 lg:grid-cols-3">
             {games.map((g) => (
               <GamePill
                 key={g.id ?? g.title} // evite usar o índice

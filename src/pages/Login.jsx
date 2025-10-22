@@ -8,12 +8,15 @@ import {
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { Mail, Lock, LogIn, User, Loader2, Chrome } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 export default function Login() {
   const nav = useNavigate();
   const emailRef = useRef(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const goBack = () => (window.history.length > 1 ? nav(-1) : nav("/"));
 
   // --- login com email/senha
   const handleEmailLogin = async (e) => {
@@ -66,6 +69,23 @@ export default function Login() {
   };
 
   return (
+    <>
+      <header className="bg-white shadow-sm border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          {/* Voltar */}
+          <button
+            onClick={goBack}
+            className="px-3 py-1.5 rounded-md text-black hover:bg-black/5 font-semibold"
+            aria-label="Voltar"
+          >
+            ← Voltar
+          </button>
+
+          {/* placeholder para manter o espaçamento */}
+          <span className="w-[88px]" aria-hidden="true" />
+        </div>
+      </header>
+
     <main
       className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-100 via-white to-sky-50 p-4"
       id="conteudo"
@@ -156,7 +176,7 @@ export default function Login() {
           disabled={loading}
           className="w-full flex justify-center items-center gap-2 bg-white text-gray-800 border border-gray-300 rounded-lg py-2 font-semibold hover:bg-gray-100 transition focus:ring-2 focus:ring-sky-300"
         >
-          <Chrome size={18} className="text-red-500" /> Entrar com Google
+          <FcGoogle size={20} /> Entrar com Google
         </button>
 
         {/* --- BOTÃO ANÔNIMO --- */}
@@ -180,5 +200,6 @@ export default function Login() {
         </p>
       </section>
     </main>
+    </>
   );
 }
