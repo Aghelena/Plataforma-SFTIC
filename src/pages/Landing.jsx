@@ -91,7 +91,7 @@ export default function Landing() {
 
   const games = useMemo(
     () => [
-      { title: "Quiz", color: "#ef4444" },
+      { title: "-", color: "#ef4444" },
       { title: "Jogo da Memória", color: "#f59e0b" },
       { title: "Forca", color: "#fc03f4" },
       { title: "Candy Crush", color: "#1f0ac2" },
