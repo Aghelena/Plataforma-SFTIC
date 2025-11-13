@@ -47,6 +47,8 @@ export default function Admin() {
   const navigate = useNavigate();
   const goBack = () =>
     window.history.length > 1 ? navigate(-1) : navigate("/");
+
+  // Quizzes
   const [quizzes, setQuizzes] = useState(() => store.get("quizzes", []));
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
@@ -56,14 +58,30 @@ export default function Admin() {
     timePerQuestion: 20,
     questions: [],
   });
-
-  // quantidade padrão de alternativas para novas perguntas
   const [defaultOptionCount, setDefaultOptionCount] = useState(4);
 
+  // Pop-ups
   const [info, setInfo] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
 
-  // Normaliza estrutura ao carregar
+  // Abas: Quiz / Dashboard
+  const [activeTab, setActiveTab] = useState("quiz");
+
+  // Resultados para dashboard (se você salvar tentativas em store.results)
+  const [results] = useState(() => {
+    const stored = store.get("results", []);
+    return Array.isArray(stored) ? stored : [];
+  });
+
+  // --- NOVO: usuários cadastrados ---
+  const [users, setUsers] = useState(() => store.get("users", []));
+  const [newUser, setNewUser] = useState({
+    username: "",
+    name: "",
+    role: "student",
+  });
+
+  // Normaliza estrutura ao carregar quizzes
   useEffect(() => {
     const fixed = (store.get("quizzes", []) || []).map((qz) => ({
       ...qz,
@@ -80,11 +98,17 @@ export default function Admin() {
     setQuizzes(fixed);
   }, []);
 
-  // Reflete mudanças (backup)
+  // Reflete mudanças de quizzes
   useEffect(() => {
     store.set("quizzes", quizzes);
     window.dispatchEvent(new Event("quizzes-updated"));
   }, [quizzes]);
+
+  // Reflete mudanças de usuários
+  useEffect(() => {
+    store.set("users", users);
+    window.dispatchEvent(new Event("users-updated"));
+  }, [users]);
 
   function resetForm() {
     setForm({
@@ -118,14 +142,12 @@ export default function Admin() {
     });
   }
 
-  // Ajusta a quantidade de alternativas de uma pergunta específica
   function setQuestionOptionCount(i, newCount) {
     setForm((f) => {
       const qs = [...f.questions];
       const current = qs[i] || { opts: [], correct: -1 };
       const resized = resizeOptions(current.opts, newCount);
 
-      // se o índice correto sair do range, zera
       const correct =
         Number.isFinite(Number(current.correct)) &&
         current.correct >= 0 &&
@@ -163,7 +185,6 @@ export default function Admin() {
       return;
     }
 
-    // valida: cada pergunta precisa ter pelo menos 2 alternativas
     const invalid = form.questions.find(
       (p) => !Array.isArray(p.opts) || p.opts.length < 2
     );
@@ -203,6 +224,76 @@ export default function Admin() {
     resetForm();
   }
 
+  // --- NOVO: cadastro de usuário ---
+
+  function handleAddUser(e) {
+    e.preventDefault();
+
+    const username = newUser.username.trim();
+    const name = newUser.name.trim() || username;
+
+    if (!username) {
+      setInfo({
+        title: "Atenção",
+        message: "Informe pelo menos o nome de usuário.",
+      });
+      return;
+    }
+
+    const exists = users.some(
+      (u) => u.username.toLowerCase() === username.toLowerCase()
+    );
+    if (exists) {
+      setInfo({
+        title: "Usuário já existe",
+        message:
+          "Já existe um usuário com esse username. Escolha outro nome de usuário.",
+      });
+      return;
+    }
+
+    const user = {
+      id: Date.now().toString(36),
+      username,
+      name,
+      role: newUser.role || "student",
+      password: "1234", // senha padrão
+    };
+
+    setUsers((prev) => [...prev, user]);
+    setNewUser({ username: "", name: "", role: "student" });
+
+    setInfo({
+      title: "Usuário criado",
+      message:
+        "Usuário cadastrado com sucesso. A senha padrão é 1234 (peça para o usuário alterar depois).",
+    });
+  }
+
+  function handleRemoveUser(id) {
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  }
+
+  // Métricas para o Dashboard
+  const totalQuizzes = quizzes.length;
+  const totalAttempts = results.length;
+  const uniqueUsersCount = (() => {
+    const ids = new Set(
+      results.map(
+        (r) =>
+          r.userId ||
+          r.userEmail ||
+          r.userName ||
+          r.usuario ||
+          r.aluno ||
+          "desconhecido"
+      )
+    );
+    return ids.size;
+  })();
+
+  const lastAttempts = [...results].slice(-10).reverse();
+
   return (
     <>
       <div className="min-h-screen bg-slate-50">
@@ -216,9 +307,36 @@ export default function Admin() {
             ← Voltar
           </button>
           <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <h1 className="text-xl font-bold text-slate-800">
-              Painel Administrativo
-            </h1>
+            {/* Título + abas */}
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">
+                Painel Administrativo
+              </h1>
+              <div className="mt-3 inline-flex bg-slate-100 rounded-full p-1">
+                <button
+                  onClick={() => setActiveTab("quiz")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-full transition ${
+                    activeTab === "quiz"
+                      ? "bg-white text-sky-600 shadow-sm"
+                      : "text-slate-600 hover:text-slate-800"
+                  }`}
+                >
+                  Quiz
+                </button>
+                <button
+                  onClick={() => setActiveTab("dashboard")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-full transition ${
+                    activeTab === "dashboard"
+                      ? "bg-white text-sky-600 shadow-sm"
+                      : "text-slate-600 hover:text-slate-800"
+                  }`}
+                >
+                  Dashboard
+                </button>
+              </div>
+            </div>
+
+            {/* Botão de novo quiz */}
             <button
               onClick={() => {
                 resetForm();
@@ -232,82 +350,345 @@ export default function Admin() {
         </header>
 
         <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-          {/* Lista de quizzes */}
-          <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-lg text-slate-800">
-                Quizzes{" "}
-                <span className="text-slate-400 text-sm">
-                  ({quizzes.length})
-                </span>
-              </h3>
-            </div>
+          {/* ABA QUIZ */}
+          {activeTab === "quiz" && (
+            <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-lg text-slate-800">
+                  Quizzes{" "}
+                  <span className="text-slate-400 text-sm">
+                    ({quizzes.length})
+                  </span>
+                </h3>
+              </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm text-slate-700">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-100/70 text-left">
-                    <th className="py-2 px-3">#</th>
-                    <th className="py-2 px-3">Título</th>
-                    <th className="py-2 px-3 hidden md:table-cell">
-                      Descrição
-                    </th>
-                    <th className="py-2 px-3 text-center">Perguntas</th>
-                    <th className="py-2 px-3 text-center">Tempo</th>
-                    <th className="py-2 px-3 text-center">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quizzes.map((q, i) => (
-                    <tr
-                      key={q.id}
-                      className="border-b border-slate-100 hover:bg-slate-50 transition"
-                    >
-                      <td className="py-2 px-3">{i + 1}</td>
-                      <td className="py-2 px-3 font-medium">{q.title}</td>
-                      <td className="py-2 px-3 hidden md:table-cell text-slate-500">
-                        {q.description || "-"}
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        {q.questions.length}
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        {q.timePerQuestion}s
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => editQuiz(q.id)}
-                            className="p-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-600 transition"
-                            aria-label="Editar quiz"
-                          >
-                            <Edit3 size={18} />
-                          </button>
-                          <button
-                            onClick={() => removeQuiz(q.id)}
-                            className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 transition"
-                            aria-label="Excluir quiz"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm text-slate-700">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-100/70 text-left">
+                      <th className="py-2 px-3">#</th>
+                      <th className="py-2 px-3">Título</th>
+                      <th className="py-2 px-3 hidden md:table-cell">
+                        Descrição
+                      </th>
+                      <th className="py-2 px-3 text-center">Perguntas</th>
+                      <th className="py-2 px-3 text-center">Tempo</th>
+                      <th className="py-2 px-3 text-center">Ações</th>
                     </tr>
-                  ))}
-                  {quizzes.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan="6"
-                        className="py-6 text-center text-slate-400"
+                  </thead>
+                  <tbody>
+                    {quizzes.map((q, i) => (
+                      <tr
+                        key={q.id}
+                        className="border-b border-slate-100 hover:bg-slate-50 transition"
                       >
-                        Nenhum quiz criado ainda.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                        <td className="py-2 px-3">{i + 1}</td>
+                        <td className="py-2 px-3 font-medium">{q.title}</td>
+                        <td className="py-2 px-3 hidden md:table-cell text-slate-500">
+                          {q.description || "-"}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {q.questions.length}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {q.timePerQuestion}s
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => editQuiz(q.id)}
+                              className="p-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-600 transition"
+                              aria-label="Editar quiz"
+                            >
+                              <Edit3 size={18} />
+                            </button>
+                            <button
+                              onClick={() => removeQuiz(q.id)}
+                              className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 transition"
+                              aria-label="Excluir quiz"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {quizzes.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan="6"
+                          className="py-6 text-center text-slate-400"
+                        >
+                          Nenhum quiz criado ainda.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ABA DASHBOARD (com usuários) */}
+          {activeTab === "dashboard" && (
+            <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-lg text-slate-800">
+                  Dashboard de Desempenho
+                </h3>
+                <span className="text-xs text-slate-400">
+                  Métricas da plataforma e gerenciamento de usuários
+                </span>
+              </div>
+
+              {/* Cards de resumo */}
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">
+                    Quizzes cadastrados
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-800">
+                    {totalQuizzes}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">
+                    Tentativas realizadas
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-800">
+                    {totalAttempts}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">
+                    Usuários únicos (tentativas)
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-800">
+                    {uniqueUsersCount}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">
+                    Usuários cadastrados (admin)
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-800">
+                    {users.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Últimas tentativas */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-slate-800 text-sm">
+                  Últimas tentativas de quiz
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm text-slate-700">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-100/70 text-left">
+                        <th className="py-2 px-3">Usuário</th>
+                        <th className="py-2 px-3">Quiz</th>
+                        <th className="py-2 px-3 text-center">Pontuação</th>
+                        <th className="py-2 px-3 text-center">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lastAttempts.map((r, idx) => {
+                        const quizTitle =
+                          quizzes.find((q) => q.id === r.quizId)?.title ||
+                          r.quizTitle ||
+                          "Quiz desconhecido";
+
+                        const userLabel =
+                          r.userName ||
+                          r.userEmail ||
+                          r.usuario ||
+                          r.aluno ||
+                          "Usuário";
+
+                        let scoreText = "-";
+                        if (typeof r.score === "number") {
+                          scoreText = `${r.score.toFixed(1)}%`;
+                        } else if (
+                          typeof r.correct === "number" &&
+                          typeof r.total === "number" &&
+                          r.total > 0
+                        ) {
+                          const pct = (r.correct / r.total) * 100;
+                          scoreText = `${pct.toFixed(
+                            1
+                          )}% (${r.correct}/${r.total})`;
+                        }
+
+                        const date =
+                          r.date || r.createdAt || r.data || r.timestamp;
+                        const dateText = date
+                          ? new Date(date).toLocaleString()
+                          : "-";
+
+                        return (
+                          <tr
+                            key={idx}
+                            className="border-b border-slate-100 hover:bg-slate-50 transition"
+                          >
+                            <td className="py-2 px-3">{userLabel}</td>
+                            <td className="py-2 px-3">{quizTitle}</td>
+                            <td className="py-2 px-3 text-center">
+                              {scoreText}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              {dateText}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {lastAttempts.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan="4"
+                            className="py-6 text-center text-slate-400"
+                          >
+                            Ainda não há tentativas registradas.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ------- NOVO: Gerenciamento de usuários ------- */}
+              <div className="border-t border-slate-200 pt-6 space-y-4">
+                <h4 className="font-semibold text-slate-800 text-sm">
+                  Gerenciamento de usuários
+                </h4>
+
+                {/* Formulário de novo usuário */}
+                <form
+                  onSubmit={handleAddUser}
+                  className="grid gap-3 md:grid-cols-4 items-end bg-slate-50 border border-slate-200 rounded-xl p-4"
+                >
+                  <div className="md:col-span-1">
+                    <label className="block text-sm text-slate-700 mb-1">
+                      Username (login)
+                    </label>
+                    <input
+                      value={newUser.username}
+                      onChange={(e) =>
+                        setNewUser((u) => ({ ...u, username: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none"
+                      placeholder="ex: joao.silva"
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-sm text-slate-700 mb-1">
+                      Nome completo
+                    </label>
+                    <input
+                      value={newUser.name}
+                      onChange={(e) =>
+                        setNewUser((u) => ({ ...u, name: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none"
+                      placeholder="João da Silva"
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-sm text-slate-700 mb-1">
+                      Papel
+                    </label>
+                    <select
+                      value={newUser.role}
+                      onChange={(e) =>
+                        setNewUser((u) => ({ ...u, role: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none bg-white"
+                    >
+                      <option value="student">Estudante</option>
+                      <option value="teacher">Professor</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-1 flex flex-col gap-1">
+                    <button
+                      type="submit"
+                      className="w-full px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition font-medium"
+                    >
+                      Adicionar usuário
+                    </button>
+                    <span className="text-[11px] text-slate-500">
+                      Senha padrão: <strong>1234</strong>
+                    </span>
+                  </div>
+                </form>
+
+                {/* Tabela de usuários */}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm text-slate-700">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-100/70 text-left">
+                        <th className="py-2 px-3">Username</th>
+                        <th className="py-2 px-3">Nome</th>
+                        <th className="py-2 px-3">Papel</th>
+                        <th className="py-2 px-3 text-center">
+                          Senha padrão
+                        </th>
+                        <th className="py-2 px-3 text-center">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr
+                          key={u.id}
+                          className="border-b border-slate-100 hover:bg-slate-50 transition"
+                        >
+                          <td className="py-2 px-3 font-mono">
+                            {u.username}
+                          </td>
+                          <td className="py-2 px-3">{u.name}</td>
+                          <td className="py-2 px-3">
+                            {u.role === "admin"
+                              ? "Admin"
+                              : u.role === "teacher"
+                              ? "Professor"
+                              : "Estudante"}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            1234
+                            {/* se quiser, pode mostrar só "padrão" */}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            <button
+                              onClick={() => handleRemoveUser(u.id)}
+                              className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 transition"
+                              aria-label="Excluir usuário"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {users.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan="5"
+                            className="py-6 text-center text-slate-400"
+                          >
+                            Nenhum usuário cadastrado ainda. Use o formulário
+                            acima para adicionar.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          )}
         </main>
       </div>
 
@@ -395,7 +776,7 @@ export default function Admin() {
                     ))}
                   </select>
                 </div>
-                <div className="md:col-span-2 flex items-end">
+                <div className="md:col-span-2 flex items-end gap-2">
                   <button
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-700 font-medium transition"
                     onClick={addQuestion}
