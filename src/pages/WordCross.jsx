@@ -264,32 +264,32 @@ export default function WordCross() {
         {/* Letras / Controles */}
         <section className="mt-6 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-700">Letras</h2>
+            <h2 className="text-sm font-semibold text-black">Letras</h2>
             <div className="flex gap-2">
               <button
                 onClick={onShuffle}
-                className="px-3 py-1.5 rounded-md bg-white border border-gray-200 shadow-sm text-sm font-semibold hover:bg-gray-50"
+                className="px-3 py-1.5 rounded-md text-black bg-white border border-gray-200 shadow-sm text-sm font-semibold hover:bg-gray-50"
                 aria-label="Embaralhar letras"
               >
                 Embaralhar
               </button>
               <button
                 onClick={onClear}
-                className="px-3 py-1.5 rounded-md bg-white border border-gray-200 shadow-sm text-sm font-semibold hover:bg-gray-50"
+                className="px-3 py-1.5 rounded-md text-black bg-white border border-gray-200 shadow-sm text-sm font-semibold hover:bg-gray-50"
                 aria-label="Limpar seleção"
               >
                 Limpar
               </button>
               <button
                 onClick={onBackspace}
-                className="px-3 py-1.5 rounded-md bg-white border border-gray-200 shadow-sm text-sm font-semibold hover:bg-gray-50"
+                className="px-3 py-1.5 rounded-md text-black bg-white border border-gray-200 shadow-sm text-sm font-semibold hover:bg-gray-50"
                 aria-label="Remover última letra"
               >
                 Apagar ⌫
               </button>
               <button
                 onClick={onSubmit}
-                className="px-3 py-1.5 rounded-md bg-sky-600 text-white shadow-sm text-sm font-semibold hover:bg-sky-700"
+                className="px-3 py-1.5 rounded-md bg-sky-600 text-black shadow-sm text-sm font-semibold hover:bg-sky-700"
                 aria-label="Enviar palavra"
               >
                 Enviar ✓
@@ -298,7 +298,7 @@ export default function WordCross() {
           </div>
 
           {/* Barra de letras */}
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+          <div className="grid grid-cols-4 text-black sm:grid-cols-8 gap-3">
             {letters.map((ch, i) => {
               const timesPicked = selection.filter(ix => ix === i).length;
               return (
