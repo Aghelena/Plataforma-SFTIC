@@ -286,9 +286,9 @@ export default function Forca() {
           aria-live="polite"
           className="mb-4 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 text-center"
         >
-          <div className="text-sm uppercase tracking-wide text-gray-500 mb-1">Palavra</div>
-          <div className="font-mono text-2xl sm:text-3xl break-words">{reveal}</div>
-          <div className="mt-2 text-xs text-gray-500">
+          <div className="text-sm uppercase tracking-wide text-black mb-1">Palavra</div>
+          <div className="font-mono text-2xl sm:text-3xl text-black break-words">{reveal}</div>
+          <div className="mt-2 text-xs text-black">
             Letras únicas: {totalLetters} • Acertos: {correctGuesses}
           </div>
         </section>

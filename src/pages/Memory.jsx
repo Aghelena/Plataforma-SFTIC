@@ -4,6 +4,10 @@ import { useNavigate } from "react-router-dom";
 
 const EMOJIS = ["🍎", "🍌", "🍇", "🍉", "🍓", "🥝", "🍑", "🍍"]; // 8 pares -> 16 cartas
 
+// >>> Delays ajustáveis <<<
+const DELAY_MATCH = 4500;   // ms: tempo de cartas abertas após ACERTO (antes era 300)
+const DELAY_MISS  = 4500;  // ms: tempo de cartas abertas após ERRO   (antes era 700)
+
 function shuffle(array) {
   const arr = array.slice();
   for (let i = arr.length - 1; i > 0; i--) {
@@ -21,6 +25,17 @@ function makeDeck() {
   return shuffle(base);
 }
 
+// ---- Acessibilidade: narração (Web Speech API) ----
+function speak(text) {
+  try {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "pt-BR";
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch {}
+}
+
 function Card({ card, flipped, disabled, onClick }) {
   const handleKey = (e) => {
     if (disabled) return;
@@ -36,14 +51,12 @@ function Card({ card, flipped, disabled, onClick }) {
       onKeyDown={handleKey}
       disabled={disabled}
       aria-pressed={flipped}
-      aria-label={flipped ? `Carta ${card.value}` : "Carta virada"}
+      aria-label={flipped || card.matched ? `Carta ${card.value}` : "Carta virada"}
       className={[
         "relative h-24 sm:h-28 rounded-2xl shadow-md",
         "flex items-center justify-center text-3xl sm:text-4xl font-bold",
         "transition-transform focus:outline-none focus:ring-2 focus:ring-violet-400",
-        flipped || card.matched
-          ? "bg-white text-black"
-          : "bg-sky-500 text-white",
+        flipped || card.matched ? "bg-white text-black" : "bg-sky-500 text-white",
         disabled ? "opacity-80 cursor-not-allowed" : "hover:scale-[1.02]",
       ].join(" ")}
     >
@@ -59,8 +72,8 @@ function Card({ card, flipped, disabled, onClick }) {
 
 export default function Memory() {
   const navigate = useNavigate();
-  const goBack = () =>
-    window.history.length > 1 ? navigate(-1) : navigate("/");
+  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate("/"));
+
   const [deck, setDeck] = useState(() => makeDeck());
   const [first, setFirst] = useState(null);
   const [second, setSecond] = useState(null);
@@ -68,6 +81,17 @@ export default function Memory() {
   const [moves, setMoves] = useState(0);
   const [time, setTime] = useState(0);
   const [running, setRunning] = useState(true);
+
+  // A11y
+  const [ttsOn, setTtsOn] = useState(true);
+  const liveRef = useRef(null);
+  function announce(msg) {
+    if (ttsOn) speak(msg);
+    if (liveRef.current) {
+      liveRef.current.textContent = "";
+      setTimeout(() => (liveRef.current.textContent = msg), 20);
+    }
+  }
 
   const allMatched = useMemo(() => deck.every((c) => c.matched), [deck]);
 
@@ -83,8 +107,9 @@ export default function Memory() {
         };
         localStorage.setItem("memory_best", JSON.stringify(newBest));
       } catch {}
+      announce(`Parabéns! Você concluiu o jogo com ${moves} jogadas.`);
     }
-  }, [allMatched, time, moves]);
+  }, [allMatched, time, moves]); // eslint-disable-line
 
   const best = useMemo(() => {
     try {
@@ -100,11 +125,17 @@ export default function Memory() {
 
     if (!first) {
       setFirst(card);
+      announce(`Primeira carta virada: ${card.value}.`);
       return;
     }
+
     setSecond(card);
     setLock(true);
-    setMoves((m) => m + 1);
+    setMoves((m) => {
+      const next = m + 1;
+      announce(`Segunda carta virada: ${card.value}. Jogada número ${next}.`);
+      return next;
+    });
 
     if (first.value === card.value) {
       // acerto
@@ -115,14 +146,16 @@ export default function Memory() {
         setFirst(null);
         setSecond(null);
         setLock(false);
-      }, 300);
+        announce(`Par formado: ${card.value}.`);
+      }, DELAY_MATCH);
     } else {
       // erro
       setTimeout(() => {
         setFirst(null);
         setSecond(null);
         setLock(false);
-      }, 700);
+        announce("Não combinam. Tente novamente.");
+      }, DELAY_MISS);
     }
   };
 
@@ -134,18 +167,22 @@ export default function Memory() {
     setMoves(0);
     setTime(0);
     setRunning(true);
+    announce("Novo jogo iniciado. Boa sorte!");
   };
 
   const gridCols = "grid grid-cols-4 gap-3 sm:gap-4"; // 4x4
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Região "live" para leitores de tela */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
+
       <header className="bg-sky-500 text-white sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Esquerda: Voltar */}
           <button
             onClick={goBack}
-            className="px-3 py-1.5 rounded-md text-black     hover:text-white hover:bg-white/10 font-semibold"
+            className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold"
             aria-label="Voltar"
           >
             ← Voltar
@@ -154,13 +191,27 @@ export default function Memory() {
           {/* Centro: título */}
           <h1 className="font-bold text-black">Jogo da Memória</h1>
 
-          {/* Direita: Reiniciar */}
-          <button
-            onClick={restart}
-            className="px-3 py-1.5 rounded-md text-black font-bold  hover:bg-white/10 hover:text-white"
-          >
-            Reiniciar
-          </button>
+          {/* Direita: Leitor + Reiniciar */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setTtsOn((v) => !v);
+                announce(`Leitor ${!ttsOn ? "ativado" : "desativado"}.`);
+              }}
+              className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white"
+              aria-pressed={ttsOn}
+              aria-label={ttsOn ? "Desativar leitor de tela por voz" : "Ativar leitor de tela por voz"}
+              title="Leitor (voz)"
+            >
+              {ttsOn ? "🔊" : "🔈"}
+            </button>
+            <button
+              onClick={restart}
+              className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white"
+            >
+              Reiniciar
+            </button>
+          </div>
         </div>
       </header>
 
@@ -171,7 +222,7 @@ export default function Memory() {
         </div>
 
         {/* Grid de cartas */}
-        <section className={`${gridCols} select-none`}>
+        <section className={`${gridCols} select-none`} role="grid" aria-label="Tabuleiro do jogo da memória">
           {deck.map((card) => {
             const flipped =
               first?.id === card.id || second?.id === card.id || card.matched;
@@ -193,8 +244,7 @@ export default function Memory() {
             role="status"
             className="mt-6 p-4 rounded-xl bg-emerald-100 text-emerald-900 font-semibold text-center"
           >
-            Parabéns! Você concluiu o jogo com {moves}{" "}
-            jogadas.
+            Parabéns! Você concluiu o jogo com {moves} jogadas.
           </div>
         )}
       </main>
@@ -205,9 +255,7 @@ export default function Memory() {
 function Stat({ label, value }) {
   return (
     <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-3 text-center">
-      <div className="text-xs uppercase tracking-wide text-gray-500">
-        {label}
-      </div>
+      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
       <div className="text-lg font-bold text-gray-800">{value}</div>
     </div>
   );

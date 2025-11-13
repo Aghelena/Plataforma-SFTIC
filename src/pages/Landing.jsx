@@ -91,12 +91,12 @@ export default function Landing() {
 
   const games = useMemo(
     () => [
-      { title: "-", color: "#ef4444" },
+      { title: "Quiz", color: "#ef4444" },
       { title: "Jogo da Memória", color: "#f59e0b" },
       { title: "Forca", color: "#fc03f4" },
       { title: "Candy Crush", color: "#1f0ac2" },
-      { title: "-", color: "#3c3a4a" },
-      { title: "-", color: "#732836" },
+      { title: "Bloco de madeira", color: "#3c3a4a" },
+      { title: "Palavras-Cruzadas", color: "#732836" },
       { title: "-", color: "#28521c" },
       { title: "-", color: "#c2ebb7" },
       { title: "-", color: "#076ab8" },
@@ -137,7 +137,13 @@ export default function Landing() {
                   } else if (g.title === "Forca") {
                     speak("Abrindo o jogo da forca.");
                     navigate("/forca");
-                  } else {
+                  } else if (g.title === "Bloco de madeira") {
+                    speak("Abrindo o jogo dos Blocos.");
+                    navigate("/wood");}
+                    else if (g.title === "Palavras-Cruzadas") {
+                    speak("Abrindo o jogo das palavras cruzadas.");
+                    navigate("/wordcross");}
+                  else {
                     speak(
                       `O jogo ${g.title} ainda será adicionado futuramente.`
                     );

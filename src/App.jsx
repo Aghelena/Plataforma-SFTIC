@@ -13,6 +13,8 @@ import { initKeyboardAnnouncer } from "./lib/speech";
 import Memory from "./pages/Memory";
 import Forca from "./pages/Forca";
 import Candy from "./pages/Candy";
+import Wood from "./pages/Wood";
+import WordCross from "./pages/WordCross";
 
 export default function App() {
   return (
@@ -30,6 +32,8 @@ export default function App() {
           <Route path="/forca" element={<Forca />} />
           <Route path="/user" element={<User />} /> 
           <Route path="/candy" element={<Candy />} /> 
+          <Route path="/wood" element={<Wood />} /> 
+          <Route path="/wordcross" element={<WordCross />} />
 
           {/* admin protegida */}
           <Route
