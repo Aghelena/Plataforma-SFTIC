@@ -2,7 +2,9 @@
 import { store } from "../lib/store.js";
 import { useEffect, useState } from "react";
 import { PlusCircle, Edit3, Trash2, X } from "lucide-react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+const API_BASE = "http://localhost:5001";
 
 /* -------- Dialog genérico -------- */
 function Dialog({ open, title, children, actions, onClose }) {
@@ -64,17 +66,25 @@ export default function Admin() {
   const [info, setInfo] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
 
-  // Abas: Quiz / Dashboard
+  // Abas: Quiz / Dashboard / Usuários
   const [activeTab, setActiveTab] = useState("quiz");
 
-  // Resultados para dashboard (se você salvar tentativas em store.results)
+  // Dados do dashboard vindos do backend
+  const [dashData, setDashData] = useState(null);
+  const [dashLoading, setDashLoading] = useState(false);
+  const [dashError, setDashError] = useState("");
+
+  // Resultados locais (caso você salve tentativas em store.results)
   const [results] = useState(() => {
     const stored = store.get("results", []);
     return Array.isArray(stored) ? stored : [];
   });
 
-  // --- NOVO: usuários cadastrados ---
-  const [users, setUsers] = useState(() => store.get("users", []));
+  // ✅ Usuários agora vêm do BACKEND (Postgres)
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState("");
+
   const [newUser, setNewUser] = useState({
     username: "",
     name: "",
@@ -104,11 +114,53 @@ export default function Admin() {
     window.dispatchEvent(new Event("quizzes-updated"));
   }, [quizzes]);
 
-  // Reflete mudanças de usuários
+  // Carrega métricas do backend quando a aba Dashboard é ativada
   useEffect(() => {
-    store.set("users", users);
-    window.dispatchEvent(new Event("users-updated"));
-  }, [users]);
+    if (activeTab !== "dashboard") return;
+
+    async function fetchDashboard() {
+      setDashLoading(true);
+      setDashError("");
+      try {
+        const res = await fetch(`${API_BASE}/api/dashboard/admin-summary`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Erro ao carregar dashboard");
+        }
+        setDashData(data);
+      } catch (e) {
+        console.error(e);
+        setDashError("Erro ao carregar dados do dashboard.");
+      } finally {
+        setDashLoading(false);
+      }
+    }
+
+    fetchDashboard();
+  }, [activeTab]);
+
+  // ✅ Carrega usuários do backend quando a aba Usuários é ativada
+  useEffect(() => {
+    if (activeTab !== "users") return;
+
+    async function fetchUsers() {
+      setUsersLoading(true);
+      setUsersError("");
+      try {
+        const res = await fetch(`${API_BASE}/api/users`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erro ao carregar usuários");
+        setUsers(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error(e);
+        setUsersError("Erro ao carregar usuários do banco.");
+      } finally {
+        setUsersLoading(false);
+      }
+    }
+
+    fetchUsers();
+  }, [activeTab]);
 
   function resetForm() {
     setForm({
@@ -163,7 +215,7 @@ export default function Admin() {
   function editQuiz(id) {
     const q = quizzes.find((x) => x.id === id);
     if (!q) return;
-    setForm(JSON.parse(JSON.stringify(q))); // deep clone
+    setForm(JSON.parse(JSON.stringify(q)));
     setModalOpen(true);
   }
 
@@ -224,9 +276,8 @@ export default function Admin() {
     resetForm();
   }
 
-  // --- NOVO: cadastro de usuário ---
-
-  function handleAddUser(e) {
+  // ✅ Cadastro de usuário (BACKEND)
+  async function handleAddUser(e) {
     e.preventDefault();
 
     const username = newUser.username.trim();
@@ -240,43 +291,63 @@ export default function Admin() {
       return;
     }
 
-    const exists = users.some(
-      (u) => u.username.toLowerCase() === username.toLowerCase()
-    );
-    if (exists) {
-      setInfo({
-        title: "Usuário já existe",
-        message:
-          "Já existe um usuário com esse username. Escolha outro nome de usuário.",
-      });
-      return;
-    }
-
-    const user = {
-      id: Date.now().toString(36),
-      username,
-      name,
-      role: newUser.role || "student",
-      password: "1234", // senha padrão
+    const roleMap = {
+      user: "Usuário",
+      admin: "Admin",
     };
 
-    setUsers((prev) => [...prev, user]);
-    setNewUser({ username: "", name: "", role: "student" });
+    try {
+      const res = await fetch(`${API_BASE}/api/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,
+          name,
+          role: roleMap[newUser.role] || "Usuário",
+        }),
+      });
 
-    setInfo({
-      title: "Usuário criado",
-      message:
-        "Usuário cadastrado com sucesso. A senha padrão é 1234 (peça para o usuário alterar depois).",
-    });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao criar usuário");
+
+      setUsers((prev) => [data, ...prev]);
+      setNewUser({ username: "", name: "", role: "student" });
+
+      setInfo({
+        title: "Usuário criado",
+        message: "Usuário cadastrado no banco com sucesso.",
+      });
+    } catch (err) {
+      console.error(err);
+      setInfo({
+        title: "Erro",
+        message: err.message || "Erro ao criar usuário.",
+      });
+    }
   }
 
-  function handleRemoveUser(id) {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+  // ✅ Remover usuário (BACKEND)
+  async function handleRemoveUser(id) {
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Erro ao remover usuário");
+
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (err) {
+      console.error(err);
+      setInfo({
+        title: "Erro",
+        message: err.message || "Erro ao remover usuário.",
+      });
+    }
   }
 
-  // Métricas para o Dashboard
-  const totalQuizzes = quizzes.length;
-  const totalAttempts = results.length;
+  // Métricas locais
+  const totalQuizzesLocal = quizzes.length;
+  const totalAttempts = results.length; // (mantido)
   const uniqueUsersCount = (() => {
     const ids = new Set(
       results.map(
@@ -291,28 +362,36 @@ export default function Admin() {
     );
     return ids.size;
   })();
-
   const lastAttempts = [...results].slice(-10).reverse();
+
+  // Métricas backend
+  const totalLoginsDia = dashData?.total_logins_dia ?? 0;
+  const acoesPorUsuario = dashData?.acoes_por_usuario_30d ?? 0;
+  const usuariosAtivos30 = dashData?.usuarios_ativos_30_dias ?? 0;
+  const tempoMedioUserSeg = dashData?.tempo_medio_user_segundos ?? 0;
+  const jogosStats = dashData?.jogos ?? [];
+  const topAtivos = dashData?.top_ativos ?? [];
+  const retencao = dashData?.retencao_7d ?? null;
+  const totalQuizzesDb = dashData?.quizzes?.total ?? 0;
 
   return (
     <>
       <div className="min-h-screen bg-slate-50">
         <header className="bg-white shadow-sm border-b border-slate-200">
-          {/* Voltar */}
-          <button
-            onClick={goBack}
-            className="px-3 py-1.5 rounded-md text-black hover:bg-white/10 font-semibold"
-            aria-label="Voltar"
-          >
-            ← Voltar
-          </button>
           <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            {/* Título + abas */}
-            <div>
+            <button
+              onClick={goBack}
+              className="px-3 py-1.5 rounded-md text-black hover:bg-white/10 font-semibold"
+              aria-label="Voltar"
+            >
+              ← Voltar
+            </button>
+
+            <div className="flex-1 flex flex-col items-center gap-2">
               <h1 className="text-xl font-bold text-slate-800">
                 Painel Administrativo
               </h1>
-              <div className="mt-3 inline-flex bg-slate-100 rounded-full p-1">
+              <div className="mt-1 inline-flex bg-slate-100 rounded-full p-1">
                 <button
                   onClick={() => setActiveTab("quiz")}
                   className={`px-4 py-1.5 text-sm font-medium rounded-full transition ${
@@ -333,10 +412,19 @@ export default function Admin() {
                 >
                   Dashboard
                 </button>
+                <button
+                  onClick={() => setActiveTab("users")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-full transition ${
+                    activeTab === "users"
+                      ? "bg-white text-sky-600 shadow-sm"
+                      : "text-slate-600 hover:text-slate-800"
+                  }`}
+                >
+                  Usuários
+                </button>
               </div>
             </div>
 
-            {/* Botão de novo quiz */}
             <button
               onClick={() => {
                 resetForm();
@@ -429,7 +517,7 @@ export default function Admin() {
             </section>
           )}
 
-          {/* ABA DASHBOARD (com usuários) */}
+          {/* ABA DASHBOARD */}
           {activeTab === "dashboard" && (
             <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-6">
               <div className="flex justify-between items-center">
@@ -437,50 +525,148 @@ export default function Admin() {
                   Dashboard de Desempenho
                 </h3>
                 <span className="text-xs text-slate-400">
-                  Métricas da plataforma e gerenciamento de usuários
+                  Métricas da plataforma
                 </span>
               </div>
 
-              {/* Cards de resumo */}
+              {dashLoading && (
+                <p className="text-sm text-slate-500">
+                  Carregando dados do dashboard...
+                </p>
+              )}
+              {dashError && (
+                <p className="text-sm text-rose-600">{dashError}</p>
+              )}
+
+              {/* Métricas principais */}
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-medium text-slate-500 uppercase">
-                    Quizzes cadastrados
+                    Logins hoje
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-slate-800">
-                    {totalQuizzes}
+                    {totalLoginsDia}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-medium text-slate-500 uppercase">
-                    Tentativas realizadas
+                    Usuários ativos (30 dias)
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-slate-800">
-                    {totalAttempts}
+                    {usuariosAtivos30}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-medium text-slate-500 uppercase">
-                    Usuários únicos (tentativas)
+                    Ações por usuário (30d)
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-slate-800">
-                    {uniqueUsersCount}
+                    {acoesPorUsuario.toFixed(1)}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-medium text-slate-500 uppercase">
-                    Usuários cadastrados (admin)
+                    Tempo médio / usuário
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-slate-800">
-                    {users.length}
+                    {(tempoMedioUserSeg / 60).toFixed(1)} min
                   </p>
                 </div>
               </div>
 
-              {/* Últimas tentativas */}
+              {/* Quizzes + retenção */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">
+                    Quizzes no banco (SQL)
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-800">
+                    {totalQuizzesDb}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">
+                    Quizzes neste painel
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-800">
+                    {totalQuizzesLocal}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    (armazenados no store/localStorage)
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">
+                    Retenção 7 dias
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-800">
+                    {retencao ? `${retencao.percentual.toFixed(1)}%` : "–"}
+                  </p>
+                  {retencao && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      {retencao.retidos_7d} de {retencao.usuarios_7d} usuários
+                      voltaram na última semana.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Jogos */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-slate-800 text-sm">
+                  Jogos da plataforma
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm text-slate-700">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-100/70 text-left">
+                        <th className="py-2 px-3">Jogo</th>
+                        <th className="py-2 px-3 text-center">Sessões</th>
+                        <th className="py-2 px-3 text-center">
+                          Usuários únicos
+                        </th>
+                        <th className="py-2 px-3 text-center">Tempo médio</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jogosStats.map((g) => (
+                        <tr
+                          key={g.game}
+                          className="border-b border-slate-100 hover:bg-slate-50 transition"
+                        >
+                          <td className="py-2 px-3">{g.game}</td>
+                          <td className="py-2 px-3 text-center">
+                            {g.total_sessoes}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            {g.usuarios_unicos}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            {(g.tempo_medio_segundos / 60).toFixed(1)} min
+                          </td>
+                        </tr>
+                      ))}
+                      {jogosStats.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan="4"
+                            className="py-6 text-center text-slate-400"
+                          >
+                            Ainda não há sessões registradas.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Últimas tentativas (store.results) */}
               <div className="space-y-3">
                 <h4 className="font-semibold text-slate-800 text-sm">
                   Últimas tentativas de quiz
@@ -518,9 +704,7 @@ export default function Admin() {
                           r.total > 0
                         ) {
                           const pct = (r.correct / r.total) * 100;
-                          scoreText = `${pct.toFixed(
-                            1
-                          )}% (${r.correct}/${r.total})`;
+                          scoreText = `${pct.toFixed(1)}% (${r.correct}/${r.total})`;
                         }
 
                         const date =
@@ -536,12 +720,8 @@ export default function Admin() {
                           >
                             <td className="py-2 px-3">{userLabel}</td>
                             <td className="py-2 px-3">{quizTitle}</td>
-                            <td className="py-2 px-3 text-center">
-                              {scoreText}
-                            </td>
-                            <td className="py-2 px-3 text-center">
-                              {dateText}
-                            </td>
+                            <td className="py-2 px-3 text-center">{scoreText}</td>
+                            <td className="py-2 px-3 text-center">{dateText}</td>
                           </tr>
                         );
                       })}
@@ -559,140 +739,144 @@ export default function Admin() {
                   </table>
                 </div>
               </div>
+            </section>
+          )}
 
-              {/* ------- NOVO: Gerenciamento de usuários ------- */}
-              <div className="border-t border-slate-200 pt-6 space-y-4">
-                <h4 className="font-semibold text-slate-800 text-sm">
+          {/* ABA USUÁRIOS */}
+          {activeTab === "users" && (
+            <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-lg text-slate-800">
                   Gerenciamento de usuários
-                </h4>
+                </h3>
+                <span className="text-xs text-slate-400">
+                  Total: {users.length}
+                </span>
+              </div>
 
-                {/* Formulário de novo usuário */}
-                <form
-                  onSubmit={handleAddUser}
-                  className="grid gap-3 md:grid-cols-4 items-end bg-slate-50 border border-slate-200 rounded-xl p-4"
-                >
-                  <div className="md:col-span-1">
-                    <label className="block text-sm text-slate-700 mb-1">
-                      Username (login)
-                    </label>
-                    <input
-                      value={newUser.username}
-                      onChange={(e) =>
-                        setNewUser((u) => ({ ...u, username: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none"
-                      placeholder="ex: joao.silva"
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="block text-sm text-slate-700 mb-1">
-                      Nome completo
-                    </label>
-                    <input
-                      value={newUser.name}
-                      onChange={(e) =>
-                        setNewUser((u) => ({ ...u, name: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none"
-                      placeholder="João da Silva"
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="block text-sm text-slate-700 mb-1">
-                      Papel
-                    </label>
-                    <select
-                      value={newUser.role}
-                      onChange={(e) =>
-                        setNewUser((u) => ({ ...u, role: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none bg-white"
-                    >
-                      <option value="student">Estudante</option>
-                      <option value="teacher">Professor</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-1 flex flex-col gap-1">
-                    <button
-                      type="submit"
-                      className="w-full px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition font-medium"
-                    >
-                      Adicionar usuário
-                    </button>
-                    <span className="text-[11px] text-slate-500">
-                      Senha padrão: <strong>1234</strong>
-                    </span>
-                  </div>
-                </form>
+              {/* (opcional) status - sem mudar design */}
+              {usersLoading && (
+                <p className="text-sm text-slate-500">
+                  Carregando usuários do banco...
+                </p>
+              )}
+              {usersError && (
+                <p className="text-sm text-rose-600">{usersError}</p>
+              )}
 
-                {/* Tabela de usuários */}
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm text-slate-700">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-100/70 text-left">
-                        <th className="py-2 px-3">Username</th>
-                        <th className="py-2 px-3">Nome</th>
-                        <th className="py-2 px-3">Papel</th>
-                        <th className="py-2 px-3 text-center">
-                          Senha padrão
-                        </th>
-                        <th className="py-2 px-3 text-center">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((u) => (
-                        <tr
-                          key={u.id}
-                          className="border-b border-slate-100 hover:bg-slate-50 transition"
-                        >
-                          <td className="py-2 px-3 font-mono">
-                            {u.username}
-                          </td>
-                          <td className="py-2 px-3">{u.name}</td>
-                          <td className="py-2 px-3">
-                            {u.role === "admin"
-                              ? "Admin"
-                              : u.role === "teacher"
-                              ? "Professor"
-                              : "Estudante"}
-                          </td>
-                          <td className="py-2 px-3 text-center">
-                            1234
-                            {/* se quiser, pode mostrar só "padrão" */}
-                          </td>
-                          <td className="py-2 px-3 text-center">
-                            <button
-                              onClick={() => handleRemoveUser(u.id)}
-                              className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 transition"
-                              aria-label="Excluir usuário"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {users.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan="5"
-                            className="py-6 text-center text-slate-400"
-                          >
-                            Nenhum usuário cadastrado ainda. Use o formulário
-                            acima para adicionar.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+              {/* Formulário de novo usuário */}
+              <form
+                onSubmit={handleAddUser}
+                className="grid gap-3 md:grid-cols-4 items-end bg-slate-50 border border-slate-200 rounded-xl p-4"
+              >
+                <div className="md:col-span-1">
+                  <label className="block text-sm text-slate-700 mb-1">
+                    Username (login)
+                  </label>
+                  <input
+                    value={newUser.username}
+                    onChange={(e) =>
+                      setNewUser((u) => ({ ...u, username: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none"
+                    placeholder="ex: joao.silva"
+                  />
                 </div>
+                <div className="md:col-span-1">
+                  <label className="block text-sm text-slate-700 mb-1">
+                    Nome completo
+                  </label>
+                  <input
+                    value={newUser.name}
+                    onChange={(e) =>
+                      setNewUser((u) => ({ ...u, name: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none"
+                    placeholder="João da Silva"
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-sm text-slate-700 mb-1">
+                    Papel
+                  </label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) =>
+                      setNewUser((u) => ({ ...u, role: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black focus:ring-2 focus:ring-sky-400 outline-none bg-white"
+                  >
+                    <option value="student">Usuário</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div className="md:col-span-1 flex flex-col gap-1">
+                  <button
+                    type="submit"
+                    className="w-full px-4 py-2 rounded-lg bg-sky-500 text-white hover:bg-sky-600 transition font-medium"
+                  >
+                    Adicionar usuário
+                  </button>
+                </div>
+              </form>
+
+              {/* Tabela de usuários */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm text-slate-700">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-100/70 text-left">
+                      <th className="py-2 px-3">Username</th>
+                      <th className="py-2 px-3">Nome</th>
+                      <th className="py-2 px-3">Papel</th>
+                      <th className="py-2 px-3 text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr
+                        key={u.id}
+                        className="border-b border-slate-100 hover:bg-slate-50 transition"
+                      >
+                        <td className="py-2 px-3 font-mono">
+                          {u.username || "-"}
+                        </td>
+                        <td className="py-2 px-3">{u.name}</td>
+                        <td className="py-2 px-3">
+                          {u.role === "Admin"
+                            ? "Admin"
+                            : "Usuário"}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            onClick={() => handleRemoveUser(u.id)}
+                            className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 transition"
+                            aria-label="Excluir usuário"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!usersLoading && users.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan="4"
+                          className="py-6 text-center text-slate-400"
+                        >
+                          Nenhum usuário cadastrado ainda. Use o formulário
+                          acima para adicionar.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </section>
           )}
         </main>
       </div>
 
-      {/* -------- Modal de criação/edição de quiz -------- */}
+      {/* Modal de criação/edição de quiz */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-start justify-center overflow-y-auto py-10 px-4 z-50">
           <div className="bg-white w-full max-w-3xl rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4">
@@ -709,7 +893,6 @@ export default function Admin() {
               </button>
             </div>
 
-            {/* Campos principais */}
             <div className="space-y-3">
               <div className="grid md:grid-cols-3 gap-3">
                 <div className="md:col-span-2">
@@ -758,7 +941,6 @@ export default function Admin() {
                 />
               </div>
 
-              {/* Config global de novas perguntas */}
               <div className="grid md:grid-cols-3 gap-3 items-end">
                 <div>
                   <label className="block text-sm text-slate-700 mb-1">
@@ -786,7 +968,6 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Lista de perguntas */}
               <ol className="space-y-3">
                 {form.questions.map((q, i) => (
                   <li
@@ -829,26 +1010,19 @@ export default function Admin() {
 
                     <div className="space-y-2">
                       {(q.opts || []).map((op, j) => (
-                        <div
-                          key={j}
-                          className="flex items-center text-black gap-2"
-                        >
+                        <div key={j} className="flex items-center text-black gap-2">
                           <input
                             type="radio"
                             name={`correct-${i}`}
                             checked={Number(q.correct ?? -1) === j}
-                            onChange={() =>
-                              updateQuestion(i, { correct: Number(j) })
-                            }
+                            onChange={() => updateQuestion(i, { correct: Number(j) })}
                             className="accent-sky-500"
                           />
                           <input
                             value={op}
                             onChange={(e) =>
                               updateQuestion(i, {
-                                opts: q.opts.map((o, k) =>
-                                  k === j ? e.target.value : o
-                                ),
+                                opts: q.opts.map((o, k) => (k === j ? e.target.value : o)),
                               })
                             }
                             className={`flex-1 px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-sky-400 outline-none ${
@@ -882,7 +1056,6 @@ export default function Admin() {
                 ))}
               </ol>
 
-              {/* Ações */}
               <div className="pt-4 flex justify-end gap-2 border-t border-slate-200 mt-2">
                 <button
                   className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition"
@@ -902,7 +1075,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* -------- Pop-ups -------- */}
+      {/* Pop-ups */}
       <Dialog
         open={!!info}
         title={info?.title || ""}

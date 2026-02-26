@@ -2,13 +2,10 @@ import React, { useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
-  signInAnonymously,
-  GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { Mail, Lock, LogIn, User, Loader2, Chrome } from "lucide-react";
-import { FcGoogle } from "react-icons/fc";
 
 export default function Login() {
   const nav = useNavigate();
@@ -37,36 +34,6 @@ export default function Login() {
     }
   };
 
-  // --- login com Google
-  const handleGoogleLogin = async () => {
-    setErr("");
-    setLoading(true);
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      nav("/Admin");
-    } catch (e) {
-      console.error(e);
-      setErr("Erro ao fazer login com Google.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- login anônimo
-  const handleAnonymousLogin = async () => {
-    setErr("");
-    setLoading(true);
-    try {
-      await signInAnonymously(auth);
-      nav("/Admin");
-    } catch (e) {
-      console.error(e);
-      setErr("Erro ao fazer login anônimo.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <>
@@ -169,24 +136,6 @@ export default function Login() {
           <span className="mx-3 text-gray-400 text-sm">ou</span>
           <hr className="flex-1 border-gray-300" />
         </div>
-
-        {/* --- BOTÃO GOOGLE --- */}
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full flex justify-center items-center gap-2 bg-white text-gray-800 border border-gray-300 rounded-lg py-2 font-semibold hover:bg-gray-100 transition focus:ring-2 focus:ring-sky-300"
-        >
-          <FcGoogle size={20} /> Entrar com Google
-        </button>
-
-        {/* --- BOTÃO ANÔNIMO --- */}
-        <button
-          onClick={handleAnonymousLogin}
-          disabled={loading}
-          className="w-full flex justify-center items-center gap-2 mt-3 bg-gray-100 text-gray-800 border border-gray-300 rounded-lg py-2 font-semibold hover:bg-gray-200 transition focus:ring-2 focus:ring-sky-300"
-        >
-          <User size={18} /> Entrar anonimamente
-        </button>
 
         {/* --- CADASTRO --- */}
         <p className="mt-6 text-center text-gray-700 text-sm">

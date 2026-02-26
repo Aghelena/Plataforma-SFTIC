@@ -8,13 +8,14 @@ import Signup from "./pages/Signup";
 import Landing from "./pages/Landing";
 import VLibras from "./components/VLibras";
 import Admin from "./pages/Admin";
-import User from "./pages/User"; 
+import Quiz from "./pages/quiz"; 
 import { initKeyboardAnnouncer } from "./lib/speech";
 import Memory from "./pages/Memory";
 import Forca from "./pages/Forca";
 import Candy from "./pages/Candy";
 import Wood from "./pages/Wood";
 import WordCross from "./pages/WordCross";
+import UserLogin from "./pages/UserLogin";
 
 export default function App() {
   return (
@@ -30,10 +31,11 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/memory" element={<Memory />} />
           <Route path="/forca" element={<Forca />} />
-          <Route path="/user" element={<User />} /> 
+          <Route path="/quiz" element={<Quiz />} /> 
           <Route path="/candy" element={<Candy />} /> 
           <Route path="/wood" element={<Wood />} /> 
           <Route path="/wordcross" element={<WordCross />} />
+          <Route path="/userLogin" element={<UserLogin />} />
 
           {/* admin protegida */}
           <Route
