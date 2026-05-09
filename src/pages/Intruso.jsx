@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { speak } from "../lib/speech";
 import { getPlayer } from "../lib/player";
 
-const API_BASE = "import.meta.env.VITE_API_URL.";
+const API_BASE = fetch(`${import.meta.env.VITE_API_URL}/api/users/login`);
 
 // BANCO DE DADOS AMPLIADO (Imagens Reais e Fundo Limpo)
 const BANCO_DE_QUESTOES = [
