@@ -2,14 +2,17 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./swagger.js";
 import usersRoutes from "./routes/userRoutes.js";
-import analyticsRoutes from "./routes/analyticsRoutes.js"; // ✅ default import
+import analyticsRoutes from "./routes/analyticsRoutes.js"; //  default import
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use(
   cors({

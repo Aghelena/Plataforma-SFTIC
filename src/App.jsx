@@ -13,9 +13,9 @@ import { initKeyboardAnnouncer } from "./lib/speech";
 import Memory from "./pages/Memory";
 import Forca from "./pages/Forca";
 import Candy from "./pages/Candy";
-import Wood from "./pages/Wood";
-import WordCross from "./pages/WordCross";
+import Intruso from "./pages/Intruso"; // Mantido apenas este
 import UserLogin from "./pages/UserLogin";
+import QuebraCabeca from "./pages/QuebraCabeca";
 
 export default function App() {
   return (
@@ -28,13 +28,12 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/" element={<Landing />} />
           <Route path="/memory" element={<Memory />} />
           <Route path="/forca" element={<Forca />} />
           <Route path="/quiz" element={<Quiz />} /> 
           <Route path="/candy" element={<Candy />} /> 
-          <Route path="/wood" element={<Wood />} /> 
-          <Route path="/wordcross" element={<WordCross />} />
+          <Route path="/intruso" element={<Intruso />} /> 
+          <Route path="/quebracabeca" element={<QuebraCabeca />} />
           <Route path="/userLogin" element={<UserLogin />} />
 
           {/* admin protegida */}

@@ -5,10 +5,26 @@ import { pool } from "../db.js";
 const router = Router();
 
 /**
- * POST /api/users/login
- * body: { name: string }
- * - cria/recupera usuário por "name"
- * - registra evento de login
+ * @openapi
+ * /api/users/login:
+ *   post:
+ *     summary: Login de usuário
+ *     tags:
+ *       - Users
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Usuário logado ou criado com sucesso
+ *       400:
+ *         description: Nome é obrigatório
  */
 router.post("/login", async (req, res) => {
   try {

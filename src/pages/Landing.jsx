@@ -56,7 +56,7 @@ function GamePill({ title, color, onClick }) {
 function LandingTopbar() {
   return (
     <header className="sticky top-0 z-40 bg-sky-500 bg-opacity-90 backdrop-blur border-b border-white/10">
-      <div className="max-w-7xl mx-auto bg-gradient-to-b from-sky-100px-4 h-14 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* Esquerda: logo + título */}
         <Link to="/" className="flex items-center text-white gap-3 group">
           <img
@@ -89,38 +89,31 @@ function LandingTopbar() {
 export default function Landing() {
   const navigate = useNavigate();
 
-  const games = useMemo(
-    () => [
-      { title: "Quiz", color: "#ef4444", route: "/quiz" },
-      { title: "Jogo da Memória", color: "#f59e0b", route: "/memory" },
-      { title: "Forca", color: "#fc03f4", route: "/forca" },
-      { title: "Candy Crush", color: "#1f0ac2", route: "/candy" },
-      { title: "Bloco de madeira", color: "#3c3a4a", route: "/wood" },
-      { title: "Palavras-Cruzadas", color: "#732836", route: "/wordcross" },
-      { title: "-", color: "#28521c", route: null },
-      { title: "-", color: "#c2ebb7", route: null },
-      { title: "-", color: "#076ab8", route: null },
-    ],
-    [],
-  );
+// Dentro do seu Landing.jsx, mude a lista de games:
+const games = useMemo(
+  () => [
+    { title: "Quiz", color: "#ef4444", route: "/quiz" },
+    { title: "Jogo da Memória", color: "#f59e0b", route: "/memory" },
+    { title: "Forca", color: "#fc03f4", route: "/forca" },
+    { title: "Encontre o Intruso", color: "#10b981", route: "/intruso" },
+    { title: "Quebra-Cabeça", color: "#732836", route: "/quebracabeca" }, // Adicionado aqui
+    { title: "Candy Crush", color: "#1f0ac2", route: "/candy" },
+    { title: "Ache a Ordem", color: "#28521c", route: null }, 
+    { title: "Mémoria Numérica*", color: "#c2ebb7", route: null }, 
+    { title: "Corrida Maluca", color: "#076ab8", route: null }, 
+  ],
+  [],
+);
 
-  // fala certa pra cada jogo
   function getSpeechForGame(title) {
     switch (title) {
-      case "Quiz":
-        return "Abrindo o quiz.";
-      case "Jogo da Memória":
-        return "Abrindo jogo da memória.";
-      case "Forca":
-        return "Abrindo o jogo da forca.";
-      case "Candy Crush":
-        return "Abrindo Candy Crush.";
-      case "Bloco de madeira":
-        return "Abrindo o jogo dos blocos.";
-      case "Palavras-Cruzadas":
-        return "Abrindo o jogo das palavras cruzadas.";
-      default:
-        return `O jogo ${title} ainda será adicionado futuramente.`;
+      case "Quiz": return "Abrindo o quiz.";
+      case "Jogo da Memória": return "Abrindo jogo da memória.";
+      case "Forca": return "Abrindo o jogo da forca.";
+      case "Candy Crush": return "Abrindo Candy Crush.";
+      case "Bloco de madeira": return "Abrindo o jogo dos blocos.";
+      case "Palavras-Cruzadas": return "Abrindo o jogo das palavras cruzadas.";
+      default: return `O jogo ${title} ainda será adicionado futuramente.`;
     }
   }
 
@@ -131,78 +124,74 @@ export default function Landing() {
     }
 
     speak(getSpeechForGame(game.title));
-
     const player = getPlayer();
 
-    // Se já tem player, entra direto no jogo
-    if (player?.id) {
+    if (player?.id || player?.name) {
       navigate(game.route);
       return;
     }
 
-    //  Se não tem, guarda rota e manda pro login
     localStorage.setItem("nextGameRoute", game.route);
     navigate("/userLogin");
   };
 
   const handleUserLoginClick = () => {
-    localStorage.removeItem("nextGameRoute"); // opcional: login direto sem escolher jogo
+    localStorage.removeItem("nextGameRoute");
     navigate("/userLogin");
   };
 
+  // FUNÇÃO ATUALIZADA: Limpa e permanece na Landing para trocar
   const handleSwitchUser = () => {
-    clearPlayer();
+    speak("Usuário removido. Clique em começar para registrar um novo nome.");
+    clearPlayer(); // Remove o nome do storage
     localStorage.removeItem("nextGameRoute");
-    navigate("/userLogin");
+    navigate("/"); // Volta/Permanece na Landing
   };
 
   const player = getPlayer();
 
   return (
-    <div className="min-h-screen  flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-white">
       <LandingTopbar />
 
-      {/* Hero + grade */}
-      <main className="flex-1 ">
+      <main className="flex-1">
         <section className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center text-black">
-            <h1 className="text-3xl md:text-4xl font-extrabold">
-              Aprenda brincando
-            </h1>
-            <p className="mt-2 text-black">
-              Desafios acessíveis para todos. Escolha um jogo e comece!
-            </p>
-            <p className="mt-2 text-black">
-              Clique no botão abaixo para registar o seu nome e comece a jogar!
-            </p>
-            <div className="mt-4 flex flex-col items-center gap-2">
-              {!player?.id ? (
-                <button
-                  onClick={handleUserLoginClick}
-                  className="px-5 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-semibold shadow-sm focus:ring-2 focus:ring-sky-300"
-                  aria-label="Registrar nome"
-                >
-                  Registrar nome
-                </button>
-              ) : (
+            <h1 className="text-3xl md:text-4xl font-extrabold">Estimulação Cognitiva</h1>
+            <p className="mt-2 text-black">Desafios acessíveis para todos. Escolha um jogo e comece!</p>
+            
+            <div className="mt-6 flex flex-col items-center gap-3">
+              {/* Se não houver player, mostra o botão de registrar */}
+              {!player?.id && !player?.name ? (
                 <>
-                  <div className="text-sm text-slate-700">
-                    Usuário atual: <strong>{player.name}</strong>
+                  <p className="text-black">Clique no botão abaixo para registrar o seu nome e comece a jogar!</p>
+                  <button
+                    onClick={handleUserLoginClick}
+                    className="px-8 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg shadow-lg transition-transform active:scale-95"
+                    aria-label="Registrar nome"
+                  >
+                    Começar a Jogar!
+                  </button>
+                </>
+              ) : (
+                /* Se houver player, mostra o nome atual e o botão de Sair */
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center gap-2">
+                  <div className="text-base text-slate-700">
+                    👋 Olá, <strong>{player.name}</strong>!
                   </div>
                   <button
                     onClick={handleSwitchUser}
-                    className="px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold shadow-sm focus:ring-2 focus:ring-rose-300"
-                    aria-label="Trocar usuário"
+                    className="px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold shadow-sm transition-colors"
+                    aria-label="Sair do usuário atual"
                   >
-                    Trocar usuário
+                    Sair / Trocar Usuário
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
 
-          {/* grade de jogos */}
-          <div className="mt-5 grid gap-5  sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {games.map((g) => (
               <GamePill
                 key={g.title}
