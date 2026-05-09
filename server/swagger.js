@@ -13,7 +13,7 @@ const options = {
       version: "1.0.0",
       description: "Documentação Swagger da API",
     },
-    servers: [{ url: "http://localhost:5001", description: "Local" }],
+    servers: [{ url: "import.meta.env.VITE_API_URL.", description: "Local" }],
   },
   apis: [path.join(__dirname, "routes", "*.js")], 
 };

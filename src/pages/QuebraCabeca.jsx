@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { speak } from "../lib/speech";
 import { getPlayer } from "../lib/player";
 
-const API_BASE = "http://localhost:5001";
+const API_BASE = "import.meta.env.VITE_API_URL.";
 
 // Banco de dados de quebra-cabeças (Usando IDs fixos do Unsplash para garantir imagens corretas e limpas)
 const DESAFIOS = [

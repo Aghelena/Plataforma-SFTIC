@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { speak } from "../lib/speech";
 import { getPlayer } from "../lib/player";
 
-const API_BASE = "http://localhost:5001";
+const API_BASE = "import.meta.env.VITE_API_URL.";
 
 // BANCO DE DADOS AMPLIADO (Imagens Reais e Fundo Limpo)
 const BANCO_DE_QUESTOES = [

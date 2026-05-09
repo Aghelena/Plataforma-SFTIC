@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = "http://localhost:5001";
+const API_BASE = "import.meta.env.VITE_API_URL.";
 
 /* -------- Dialog genérico -------- */
 function Dialog({ open, title, children, actions, onClose }) {
