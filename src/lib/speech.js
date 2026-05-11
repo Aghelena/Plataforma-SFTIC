@@ -1,98 +1,102 @@
 // src/lib/speech.js
-let speaking = false;
-let queue = [];
 
-export function speak(text) {
-  if (!("speechSynthesis" in window) || !text) return;
+export function isSpeechSupported() {
+  return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+}
+
+export function getVoices() {
+  if (!isSpeechSupported()) return [];
+  return window.speechSynthesis.getVoices();
+}
+
+export function getReadableText() {
+  const selectedText = window.getSelection()?.toString()?.trim();
+
+  if (selectedText) {
+    return selectedText;
+  }
+
+  const content =
+    document.querySelector("#conteudo") ||
+    document.querySelector("main") ||
+    document.body;
+
+  const clone = content.cloneNode(true);
+
+  clone
+    .querySelectorAll(
+      "script, style, svg, nav, header, footer, [data-reader-ignore]"
+    )
+    .forEach((element) => element.remove());
+
+  return clone.innerText.replace(/\s+/g, " ").trim();
+}
+
+export function splitTextIntoChunks(text) {
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+
+  const chunks = [];
+  let currentChunk = "";
+
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > 220) {
+      if (currentChunk.trim()) {
+        chunks.push(currentChunk.trim());
+      }
+
+      currentChunk = sentence;
+    } else {
+      currentChunk += " " + sentence;
+    }
+  }
+
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
+}
+
+export function stopSpeech() {
+  if (!isSpeechSupported()) return;
   window.speechSynthesis.cancel();
-  speaking = false;
-
-  // divide textos longos pra não truncar
-  queue = String(text).match(/.{1,180}(\s|$)/g) || [String(text)];
-  playNext();
 }
 
-function playNext() {
-  if (!queue.length) { speaking = false; return; }
-  const chunk = queue.shift().trim();
-  if (!chunk) return playNext();
-
-  const u = new SpeechSynthesisUtterance(chunk);
-  u.lang = "pt-BR"; u.rate = 1; u.pitch = 1;
-  u.onend = () => playNext();
-  speaking = true;
-  window.speechSynthesis.speak(u);
+export function pauseSpeech() {
+  if (!isSpeechSupported()) return;
+  window.speechSynthesis.pause();
 }
 
-export function stopSpeak() {
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  queue = []; speaking = false;
+export function resumeSpeech() {
+  if (!isSpeechSupported()) return;
+  window.speechSynthesis.resume();
 }
 
-/** Inicializa anúncios quando o foco muda via teclado (Tab/Shift+Tab/setas) */
-export function initKeyboardAnnouncer() {
-  if (typeof window === "undefined") return;
+export function speakText(text, options = {}) {
+  if (!isSpeechSupported()) {
+    throw new Error("Seu navegador não suporta leitura por voz.");
+  }
 
-  let lastInputWasKeyboard = false;
+  const utterance = new SpeechSynthesisUtterance(text);
 
-  const isAdmin = () => window.location.pathname.startsWith("/admin");
-  const isAllowedRoute = () => !isAdmin(); // bloqueia na /admin
+  utterance.lang = options.lang || "pt-BR";
+  utterance.rate = options.rate || 1;
+  utterance.pitch = options.pitch || 1;
+  utterance.volume = options.volume || 1;
 
-  const onKeyDown = (e) => {
-    // Tab/Shift+Tab/Arrows marcam que o próximo focus veio do teclado
-    if (["Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-      lastInputWasKeyboard = true;
-    }
-  };
-  const onMouseDown = () => { lastInputWasKeyboard = false; };
+  if (options.voice) {
+    utterance.voice = options.voice;
+  }
 
-  const labelFrom = (el) => {
-    if (!el) return "";
-    const aria = el.getAttribute("aria-label");
-    if (aria) return aria;
-    const labelledBy = el.getAttribute("aria-labelledby");
-    if (labelledBy) {
-      const n = document.getElementById(labelledBy);
-      if (n) return n.textContent?.trim() || "";
-    }
-    // usa texto visível como fallback
-    const text = (el.textContent || "").replace(/\s+/g, " ").trim();
-    return text;
-  };
+  if (options.onEnd) {
+    utterance.onend = options.onEnd;
+  }
 
-  const onFocusIn = (e) => {
-    if (!isAllowedRoute() || !lastInputWasKeyboard) return;
+  if (options.onError) {
+    utterance.onerror = options.onError;
+  }
 
-    const el = e.target;
-    // deixe os elementos com data-speak="off" silenciosos
-    if (el && el.getAttribute && el.getAttribute("data-speak") === "off") return;
+  window.speechSynthesis.speak(utterance);
 
-    let text = labelFrom(el);
-    // prefixos amigáveis
-    const tag = (el.tagName || "").toLowerCase();
-    if (tag === "a") text = `Link: ${text}`;
-    else if (tag === "button") text = `Botão: ${text}`;
-    else if (tag === "input") {
-      const type = el.getAttribute("type") || "texto";
-      const p = labelFrom(document.querySelector(`label[for="${el.id}"]`));
-      text = p ? `Campo ${p}` : `Campo ${type}`;
-    }
-
-    // se ainda ficou vazio, tenta o parent imediato
-    if (!text) text = labelFrom(el.parentElement);
-
-    if (text) speak(text);
-  };
-
-  window.addEventListener("keydown", onKeyDown, true);
-  window.addEventListener("mousedown", onMouseDown, true);
-  window.addEventListener("focusin", onFocusIn, true);
-
-  // retorno para descadastrar (se você quiser usar no unmount)
-  return () => {
-    window.removeEventListener("keydown", onKeyDown, true);
-    window.removeEventListener("mousedown", onMouseDown, true);
-    window.removeEventListener("focusin", onFocusIn, true);
-  };
+  return utterance;
 }

@@ -1,5 +1,6 @@
 // src/contexts/AuthContext.jsx
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+
 import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -8,38 +9,51 @@ import {
   sendPasswordResetEmail,
   signOut as fbSignOut,
 } from "firebase/auth";
-import { auth, db } from "../lib/firebase";
+
 import {
   doc,
   setDoc,
   onSnapshot,
   getDocFromCache,
-  getDocFromServer,
 } from "firebase/firestore";
+
+import { auth, db } from "../lib/firebase";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null); // { uid, email, displayName?, role?, ... }
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [offline, setOffline] = useState(false);
+  const [offline, setOffline] = useState(!navigator.onLine);
 
-  // Status de rede do navegador (opcional, mas útil para UI)
   useEffect(() => {
-    function handleOnline() { setOffline(false); }
-    function handleOffline() { setOffline(true); }
+    function handleOnline() {
+      setOffline(false);
+    }
+
+    function handleOffline() {
+      setOffline(true);
+    }
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
-  // Observa sessão e perfil (Firestore) com fallback a cache
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
+    let offProfile = null;
+
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
       setLoading(true);
+
+      if (offProfile) {
+        offProfile();
+        offProfile = null;
+      }
 
       if (!user) {
         setCurrentUser(null);
@@ -49,101 +63,147 @@ export function AuthProvider({ children }) {
 
       const ref = doc(db, "users", user.uid);
 
-      // 1) tenta cache rápido para não travar UI quando offline
+      const baseUser = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || undefined,
+      };
+
       try {
         const snapCache = await getDocFromCache(ref);
+
         if (snapCache.exists()) {
           setCurrentUser({
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || undefined,
+            ...baseUser,
             ...snapCache.data(),
           });
         } else {
-          setCurrentUser({
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || undefined,
-          });
+          setCurrentUser(baseUser);
         }
       } catch {
-        setCurrentUser({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || undefined,
-        });
+        setCurrentUser(baseUser);
+      } finally {
+        // Important: do not wait forever for Firestore onSnapshot
+        setLoading(false);
       }
 
-      // 2) abre listener — entrega cache e atualiza quando voltar a rede
-      const offProfile = onSnapshot(
+      offProfile = onSnapshot(
         ref,
         { includeMetadataChanges: true },
         (snap) => {
-          const fromCache = snap.metadata.fromCache;
           const data = snap.exists() ? snap.data() : {};
+
           setCurrentUser((prev) => ({
             ...(prev || {}),
+            ...baseUser,
             ...data,
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || prev?.displayName,
+            displayName:
+              user.displayName ||
+              data.name ||
+              prev?.displayName ||
+              undefined,
           }));
-          setOffline(fromCache);
+
+          setOffline(snap.metadata.fromCache);
           setLoading(false);
         },
-        async (err) => {
-          console.warn("AuthContext snapshot error:", err?.message || err);
+        (error) => {
+          console.warn(
+            "AuthContext Firestore profile listener error:",
+            error?.code || error?.message || error
+          );
+
+          setCurrentUser(baseUser);
           setOffline(true);
-          try {
-            const snapServer = await getDocFromServer(ref);
-            if (snapServer.exists()) {
-              setCurrentUser({
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName || undefined,
-                ...snapServer.data(),
-              });
-              setOffline(false);
-            }
-          } catch {}
           setLoading(false);
         }
       );
-
-      return () => offProfile();
     });
 
-    return () => unsub();
+    return () => {
+      unsubAuth();
+
+      if (offProfile) {
+        offProfile();
+      }
+    };
   }, []);
 
-  // ---------- Ações de autenticação ----------
   async function signUp(email, password, name) {
-    const { user } = await createUserWithEmailAndPassword(auth, email, password);
+  try {
+    const cleanEmail = email?.trim().toLowerCase();
+    const cleanName = name?.trim() || "";
 
-    // displayName no Auth (independe do Firestore)
-    try { await updateProfile(user, { displayName: name }); } catch {}
-
-    // perfil no Firestore (não bloqueie o fluxo se offline)
-    try {
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          name,
-          email,
-          role: "user",
-          createdAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-    } catch (e) {
-      console.warn("setDoc perfil falhou (seguindo mesmo assim):", e?.code || e?.message || e);
+    if (!cleanEmail) {
+      throw new Error("Email is required.");
     }
 
+    if (!password || password.length < 6) {
+      throw new Error("Password must have at least 6 characters.");
+    }
+
+    const { user } = await createUserWithEmailAndPassword(
+      auth,
+      cleanEmail,
+      password
+    );
+
+    try {
+      await updateProfile(user, {
+        displayName: cleanName,
+      });
+    } catch (error) {
+      console.warn(
+        "updateProfile failed:",
+        error?.code || error?.message || error
+      );
+    }
+
+    // Important: do not await this, otherwise Firestore can keep the page loading
+    setDoc(
+      doc(db, "users", user.uid),
+      {
+        name: cleanName,
+        email: cleanEmail,
+        role: "user",
+        createdAt: new Date().toISOString(),
+      },
+      { merge: true }
+    ).catch((error) => {
+      console.warn(
+        "setDoc user profile failed:",
+        error?.code || error?.message || error
+      );
+    });
+
     return user;
+  } catch (error) {
+    console.error("Firebase signUp error code:", error.code);
+    console.error("Firebase signUp error message:", error.message);
+
+    throw error;
   }
+}
 
   async function signIn(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+    try {
+      const cleanEmail = email?.trim().toLowerCase();
+
+      if (!cleanEmail) {
+        throw new Error("Email is required.");
+      }
+
+      if (!password) {
+        throw new Error("Password is required.");
+      }
+
+      return await signInWithEmailAndPassword(auth, cleanEmail, password);
+    } catch (error) {
+      console.error("Firebase signIn error code:", error.code);
+      console.error("Firebase signIn error message:", error.message);
+
+      throw error;
+    }
   }
 
   async function signOut() {
@@ -152,20 +212,44 @@ export function AuthProvider({ children }) {
   }
 
   async function resetPassword(email) {
-    await sendPasswordResetEmail(auth, email);
+    try {
+      const cleanEmail = email?.trim().toLowerCase();
+
+      if (!cleanEmail) {
+        throw new Error("Email is required.");
+      }
+
+      await sendPasswordResetEmail(auth, cleanEmail);
+    } catch (error) {
+      console.error("Firebase resetPassword error code:", error.code);
+      console.error("Firebase resetPassword error message:", error.message);
+
+      throw error;
+    }
   }
 
   const value = useMemo(
-    () => ({ currentUser, loading, offline, signUp, signIn, signOut, resetPassword }),
+    () => ({
+      currentUser,
+      loading,
+      offline,
+      signUp,
+      signIn,
+      signOut,
+      resetPassword,
+    }),
     [currentUser, loading, offline]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Hook para consumir o contexto
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+
+  if (!ctx) {
+    throw new Error("useAuth must be used within <AuthProvider>");
+  }
+
   return ctx;
 }

@@ -1,10 +1,10 @@
 // src/pages/UserLogin.jsx
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Lock, LogIn, Loader2 } from "lucide-react";
+import { User, LogIn, Loader2 } from "lucide-react";
 import { setPlayer } from "../lib/player";
-
-const API_BASE = fetch(`${import.meta.env.VITE_API_URL}/api/users/login`);
+import { apiFetch } from "../lib/api.js";
 
 function UserLogin() {
   const nav = useNavigate();
@@ -13,8 +13,9 @@ function UserLogin() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const goBack = () =>
+  const goBack = () => {
     window.history.length > 1 ? nav(-1) : nav("/");
+  };
 
   const handleUserLogin = async (e) => {
     e.preventDefault();
@@ -28,23 +29,17 @@ function UserLogin() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/users/login`, {
+      const data = await apiFetch("/api/users/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+        }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Erro ao fazer login");
-      }
 
       setPlayer(data);
 
       const nextGame = localStorage.getItem("nextGameRoute") || "/";
       nav(nextGame);
-
     } catch (error) {
       console.error(error);
       setErr("Erro ao fazer login. Tente novamente.");
@@ -55,7 +50,6 @@ function UserLogin() {
 
   return (
     <>
-      {/* 🔹 Header com botão Voltar */}
       <header className="bg-white shadow-sm border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <button
@@ -65,11 +59,11 @@ function UserLogin() {
           >
             ← Voltar
           </button>
+
           <span className="w-[88px]" aria-hidden="true" />
         </div>
       </header>
 
-      {/* 🔹 Conteúdo principal */}
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-100 via-white to-sky-50 p-4">
         <section className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
           <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
@@ -77,13 +71,17 @@ function UserLogin() {
           </h1>
 
           <form onSubmit={handleUserLogin} className="space-y-4">
-            {/* Nome */}
             <div>
               <label className="block font-medium text-gray-700 mb-1">
                 Seu nome
               </label>
+
               <div className="relative">
-                <User className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                <User
+                  className="absolute left-3 top-2.5 text-gray-400"
+                  size={18}
+                />
+
                 <input
                   type="text"
                   value={name}
@@ -97,15 +95,13 @@ function UserLogin() {
             </div>
 
             {err && (
-              <p className="text-red-600 text-sm font-medium">
-                {err}
-              </p>
+              <p className="text-red-600 text-sm font-medium">{err}</p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg py-2 font-semibold transition focus:ring-2 focus:ring-sky-300"
+              className="w-full flex justify-center items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg py-2 font-semibold transition focus:ring-2 focus:ring-sky-300 disabled:opacity-60"
             >
               {loading ? (
                 <>
