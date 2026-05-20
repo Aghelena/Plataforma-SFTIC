@@ -1,12 +1,13 @@
 // src/pages/Memory.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { speak } from "../lib/speech";
 
 const EMOJIS = ["🍎", "🍌", "🍇", "🍉", "🍓", "🥝", "🍑", "🍍"]; // 8 pares -> 16 cartas
 
 // >>> Delays ajustáveis <<<
-const DELAY_MATCH = 4500;   // ms: tempo de cartas abertas após ACERTO (antes era 300)
-const DELAY_MISS  = 4500;  // ms: tempo de cartas abertas após ERRO   (antes era 700)
+const DELAY_MATCH = 4500; // ms: tempo de cartas abertas após ACERTO (antes era 300)
+const DELAY_MISS = 4500; // ms: tempo de cartas abertas após ERRO   (antes era 700)
 
 function shuffle(array) {
   const arr = array.slice();
@@ -25,17 +26,6 @@ function makeDeck() {
   return shuffle(base);
 }
 
-// ---- Acessibilidade: narração (Web Speech API) ----
-function speak(text) {
-  try {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "pt-BR";
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  } catch {}
-}
-
 function Card({ card, flipped, disabled, onClick }) {
   const handleKey = (e) => {
     if (disabled) return;
@@ -51,12 +41,16 @@ function Card({ card, flipped, disabled, onClick }) {
       onKeyDown={handleKey}
       disabled={disabled}
       aria-pressed={flipped}
-      aria-label={flipped || card.matched ? `Carta ${card.value}` : "Carta virada"}
+      aria-label={
+        flipped || card.matched ? `Carta ${card.value}` : "Carta virada"
+      }
       className={[
         "relative h-24 sm:h-28 rounded-2xl shadow-md",
         "flex items-center justify-center text-3xl sm:text-4xl font-bold",
         "transition-transform focus:outline-none focus:ring-2 focus:ring-violet-400",
-        flipped || card.matched ? "bg-white text-black" : "bg-sky-500 text-white",
+        flipped || card.matched
+          ? "bg-white text-black"
+          : "bg-sky-500 text-white",
         disabled ? "opacity-80 cursor-not-allowed" : "hover:scale-[1.02]",
       ].join(" ")}
     >
@@ -72,7 +66,8 @@ function Card({ card, flipped, disabled, onClick }) {
 
 export default function Memory() {
   const navigate = useNavigate();
-  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate("/"));
+  const goBack = () =>
+    window.history.length > 1 ? navigate(-1) : navigate("/");
 
   const [deck, setDeck] = useState(() => makeDeck());
   const [first, setFirst] = useState(null);
@@ -85,12 +80,29 @@ export default function Memory() {
   // A11y
   const [ttsOn, setTtsOn] = useState(true);
   const liveRef = useRef(null);
+
   function announce(msg) {
     if (ttsOn) speak(msg);
     if (liveRef.current) {
       liveRef.current.textContent = "";
       setTimeout(() => (liveRef.current.textContent = msg), 20);
     }
+  }
+
+  function readScreen() {
+    const matchedPairs = deck.filter((card) => card.matched).length / 2;
+    const totalPairs = EMOJIS.length;
+
+    announce(
+      `Jogo da Memória. 
+      O objetivo é encontrar todos os pares de cartas iguais. 
+      O jogo tem ${totalPairs} pares no total. 
+      Você já encontrou ${matchedPairs} pares. 
+      Você fez ${moves} jogadas até agora. 
+      Para jogar, escolha duas cartas. 
+      Se elas forem iguais, formarão um par. 
+      Se forem diferentes, tente novamente.`
+    );
   }
 
   const allMatched = useMemo(() => deck.every((c) => c.matched), [deck]);
@@ -175,7 +187,12 @@ export default function Memory() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Região "live" para leitores de tela */}
-      <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        ref={liveRef}
+      />
 
       <header className="bg-sky-500 text-white sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -194,16 +211,12 @@ export default function Memory() {
           {/* Direita: Leitor + Reiniciar */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setTtsOn((v) => !v);
-                announce(`Leitor ${!ttsOn ? "ativado" : "desativado"}.`);
-              }}
+              onClick={readScreen}
               className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white"
-              aria-pressed={ttsOn}
-              aria-label={ttsOn ? "Desativar leitor de tela por voz" : "Ativar leitor de tela por voz"}
-              title="Leitor (voz)"
+              aria-label="Ler instruções do jogo da memória"
+              title="Ler tela"
             >
-              {ttsOn ? "🔊" : "🔈"}
+              🔊
             </button>
             <button
               onClick={restart}
@@ -215,14 +228,18 @@ export default function Memory() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-6">
+      <main id="conteudo" className="max-w-5xl mx-auto px-4 py-6">
         {/* Painel de status */}
         <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Stat label="Jogadas" value={moves} />
         </div>
 
         {/* Grid de cartas */}
-        <section className={`${gridCols} select-none`} role="grid" aria-label="Tabuleiro do jogo da memória">
+        <section
+          className={`${gridCols} select-none`}
+          role="grid"
+          aria-label="Tabuleiro do jogo da memória"
+        >
           {deck.map((card) => {
             const flipped =
               first?.id === card.id || second?.id === card.id || card.matched;
@@ -255,7 +272,9 @@ export default function Memory() {
 function Stat({ label, value }) {
   return (
     <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-3 text-center">
-      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-gray-500">
+        {label}
+      </div>
       <div className="text-lg font-bold text-gray-800">{value}</div>
     </div>
   );

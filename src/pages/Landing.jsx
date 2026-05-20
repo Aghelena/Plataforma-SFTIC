@@ -31,22 +31,29 @@ function Dialog({ open, title, children, actions, onClose }) {
 }
 
 // --- Cada bloco colorido ---
-function GamePill({ title, color, onClick }) {
+function GamePill({ title, color, onClick, available }) {
   return (
     <button
       onClick={onClick}
       className="block rounded-[36px] focus:outline-none focus:ring-2 focus:ring-white/40 transition-transform hover:scale-[1.03]"
-      style={{ backgroundColor: color }}
-      aria-label={`Abrir ${title}`}
+      style={{ backgroundColor: color, opacity: available ? 1 : 0.6 }}
+      aria-label={
+        available
+          ? `Jogar ${title}`
+          : `${title} — em breve, ainda não disponível`
+      }
+      aria-disabled={!available}
     >
       <div className="relative rounded-[36px] overflow-hidden shadow-xl ring-1 ring-white/10 w-full h-28">
-        <div
-          className="pointer-events-none absolute inset-0
-                      bg-[radial-gradient(120%_80%_at_0%_0%,rgba(255,255,255,.25),transparent_60%)]"
-        />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_0%_0%,rgba(255,255,255,.25),transparent_60%)]" />
         <div className="absolute left-5 bottom-2 text-white drop-shadow font-semibold">
           {title}
         </div>
+        {!available && (
+          <div className="absolute top-2 right-3 text-white text-xs font-bold bg-black/30 px-2 py-0.5 rounded-full">
+            Em breve
+          </div>
+        )}
       </div>
     </button>
   );
@@ -89,31 +96,38 @@ function LandingTopbar() {
 export default function Landing() {
   const navigate = useNavigate();
 
-// Dentro do seu Landing.jsx, mude a lista de games:
-const games = useMemo(
-  () => [
-    { title: "Quiz", color: "#ef4444", route: "/quiz" },
-    { title: "Jogo da Memória", color: "#f59e0b", route: "/memory" },
-    { title: "Forca", color: "#fc03f4", route: "/forca" },
-    { title: "Encontre o Intruso", color: "#10b981", route: "/intruso" },
-    { title: "Quebra-Cabeça", color: "#732836", route: "/quebracabeca" }, // Adicionado aqui
-    { title: "Candy Crush", color: "#1f0ac2", route: "/candy" },
-    { title: "Ache a Ordem", color: "#28521c", route: null }, 
-    { title: "Mémoria Numérica*", color: "#c2ebb7", route: null }, 
-    { title: "Corrida Maluca", color: "#076ab8", route: null }, 
-  ],
-  [],
-);
+  // Dentro do seu Landing.jsx, mude a lista de games:
+  const games = useMemo(
+    () => [
+      { title: "Quiz", color: "#ef4444", route: "/quiz" },
+      { title: "Jogo da Memória", color: "#f59e0b", route: "/memory" },
+      { title: "Forca", color: "#fc03f4", route: "/forca" },
+      { title: "Encontre o Intruso", color: "#10b981", route: "/intruso" },
+      { title: "Quebra-Cabeça", color: "#732836", route: "/quebracabeca" }, // Adicionado aqui
+      { title: "Candy Crush", color: "#1f0ac2", route: "/candy" },
+      { title: "Ache a Ordem", color: "#28521c", route: null },
+      { title: "Mémoria Numérica*", color: "#c2ebb7", route: null },
+      { title: "Corrida Maluca", color: "#076ab8", route: null },
+    ],
+    [],
+  );
 
   function getSpeechForGame(title) {
     switch (title) {
-      case "Quiz": return "Abrindo o quiz.";
-      case "Jogo da Memória": return "Abrindo jogo da memória.";
-      case "Forca": return "Abrindo o jogo da forca.";
-      case "Candy Crush": return "Abrindo Candy Crush.";
-      case "Bloco de madeira": return "Abrindo o jogo dos blocos.";
-      case "Palavras-Cruzadas": return "Abrindo o jogo das palavras cruzadas.";
-      default: return `O jogo ${title} ainda será adicionado futuramente.`;
+      case "Quiz":
+        return "Abrindo o quiz.";
+      case "Jogo da Memória":
+        return "Abrindo jogo da memória.";
+      case "Forca":
+        return "Abrindo o jogo da forca.";
+      case "Candy Crush":
+        return "Abrindo Candy Crush.";
+      case "Bloco de madeira":
+        return "Abrindo o jogo dos blocos.";
+      case "Palavras-Cruzadas":
+        return "Abrindo o jogo das palavras cruzadas.";
+      default:
+        return `O jogo ${title} ainda será adicionado futuramente.`;
     }
   }
 
@@ -143,9 +157,9 @@ const games = useMemo(
   // FUNÇÃO ATUALIZADA: Limpa e permanece na Landing para trocar
   const handleSwitchUser = () => {
     speak("Usuário removido. Clique em começar para registrar um novo nome.");
-    clearPlayer(); // Remove o nome do storage
+    clearPlayer();
     localStorage.removeItem("nextGameRoute");
-    navigate("/"); // Volta/Permanece na Landing
+    navigate("/");
   };
 
   const player = getPlayer();
@@ -157,14 +171,21 @@ const games = useMemo(
       <main className="flex-1">
         <section className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center text-black">
-            <h1 className="text-3xl md:text-4xl font-extrabold">Estimulação Cognitiva</h1>
-            <p className="mt-2 text-black">Desafios acessíveis para todos. Escolha um jogo e comece!</p>
-            
+            <h1 className="text-3xl md:text-4xl font-extrabold">
+              Estimulação Cognitiva
+            </h1>
+            <p className="mt-2 text-black">
+              Desafios acessíveis para todos. Escolha um jogo e comece!
+            </p>
+
             <div className="mt-6 flex flex-col items-center gap-3">
               {/* Se não houver player, mostra o botão de registrar */}
               {!player?.id && !player?.name ? (
                 <>
-                  <p className="text-black">Clique no botão abaixo para registrar o seu nome e comece a jogar!</p>
+                  <p className="text-black">
+                    Clique no botão abaixo para registrar o seu nome e comece a
+                    jogar!
+                  </p>
                   <button
                     onClick={handleUserLoginClick}
                     className="px-8 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg shadow-lg transition-transform active:scale-95"
@@ -177,7 +198,7 @@ const games = useMemo(
                 /* Se houver player, mostra o nome atual e o botão de Sair */
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center gap-2">
                   <div className="text-base text-slate-700">
-                    👋 Olá, <strong>{player.name}</strong>!
+                    Olá, <strong>{player.name}</strong>!
                   </div>
                   <button
                     onClick={handleSwitchUser}
@@ -197,6 +218,7 @@ const games = useMemo(
                 key={g.title}
                 title={g.title}
                 color={g.color}
+                available={!!g.route}
                 onClick={() => handleGameClick(g)}
               />
             ))}

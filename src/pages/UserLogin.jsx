@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { User, LogIn, Loader2 } from "lucide-react";
 import { setPlayer } from "../lib/player";
 import { apiFetch } from "../lib/api.js";
+import { speak } from "../lib/speech.js";
 
 function UserLogin() {
   const nav = useNavigate();
@@ -22,7 +23,9 @@ function UserLogin() {
     setErr("");
 
     if (!name.trim()) {
-      setErr("Digite seu nome.");
+      const msg = "Digite seu nome.";
+      setErr(msg);
+      speak(msg);
       return;
     }
 
@@ -31,9 +34,7 @@ function UserLogin() {
     try {
       const data = await apiFetch("/api/users/login", {
         method: "POST",
-        body: JSON.stringify({
-          name: name.trim(),
-        }),
+        body: JSON.stringify({ name: name.trim() }),
       });
 
       setPlayer(data);
@@ -41,8 +42,24 @@ function UserLogin() {
       const nextGame = localStorage.getItem("nextGameRoute") || "/";
       nav(nextGame);
     } catch (error) {
-      console.error(error);
-      setErr("Erro ao fazer login. Tente novamente.");
+      // O apiFetch lança o data.error do servidor como mensagem
+      // então conseguimos distinguir 404 de outros erros
+      const serverMessage = error.message || "";
+
+      let friendlyMessage;
+
+      if (serverMessage.includes("não encontrado")) {
+        friendlyMessage =
+          "Nome não encontrado. Peça para sua terapeuta realizar seu cadastro.";
+      } else if (serverMessage.includes("obrigatório")) {
+        friendlyMessage = "Digite seu nome antes de entrar.";
+      } else {
+        friendlyMessage = "Erro ao fazer login. Tente novamente.";
+      }
+
+      setErr(friendlyMessage);
+      speak(friendlyMessage);
+      console.error("Erro no login:", error);
     } finally {
       setLoading(false);
     }
@@ -59,20 +76,31 @@ function UserLogin() {
           >
             ← Voltar
           </button>
-
           <span className="w-[88px]" aria-hidden="true" />
         </div>
       </header>
 
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-100 via-white to-sky-50 p-4">
-        <section className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-          <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
-            Bem-vindo! Escreva seu nome
+        <section
+          className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 border border-gray-100"
+          aria-labelledby="login-title"
+        >
+          <h1
+            id="login-title"
+            className="text-3xl font-bold text-center text-gray-800 mb-2"
+          >
+            Bem-vindo!
           </h1>
+          <p className="text-center text-gray-500 text-sm mb-6">
+            Digite o nome cadastrado pela sua terapeuta.
+          </p>
 
-          <form onSubmit={handleUserLogin} className="space-y-4">
+          <form onSubmit={handleUserLogin} className="space-y-4" noValidate>
             <div>
-              <label className="block font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="user-name"
+                className="block font-medium text-gray-700 mb-1"
+              >
                 Seu nome
               </label>
 
@@ -80,37 +108,46 @@ function UserLogin() {
                 <User
                   className="absolute left-3 top-2.5 text-gray-400"
                   size={18}
+                  aria-hidden="true"
                 />
-
                 <input
+                  id="user-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-gray-900 focus:ring-2 focus:ring-sky-400 focus:outline-none"
                   placeholder="Digite seu nome"
                   autoComplete="off"
-                  required
+                  aria-describedby={err ? "login-error" : undefined}
+                  aria-invalid={!!err}
                 />
               </div>
             </div>
 
             {err && (
-              <p className="text-red-600 text-sm font-medium">{err}</p>
+              <p
+                id="login-error"
+                role="alert"
+                className="text-red-600 text-sm font-medium"
+              >
+                {err}
+              </p>
             )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full flex justify-center items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg py-2 font-semibold transition focus:ring-2 focus:ring-sky-300 disabled:opacity-60"
+              aria-busy={loading}
             >
               {loading ? (
                 <>
-                  <Loader2 className="animate-spin" size={18} />
+                  <Loader2 className="animate-spin" aria-hidden="true" size={18} />
                   Entrando...
                 </>
               ) : (
                 <>
-                  <LogIn size={18} />
+                  <LogIn aria-hidden="true" size={18} />
                   Entrar
                 </>
               )}

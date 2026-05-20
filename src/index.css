@@ -151,3 +151,73 @@ input[type=number] { -moz-appearance: textfield; }
 
 /* links */
 [class*="contrast-"] a { color: var(--c-accent) !important; }
+
+/* =====================================================
+   OVERRIDES PARA OS JOGOS (usam classes Tailwind fixas)
+   ===================================================== */
+
+[class*="contrast-"] .bg-white,
+[class*="contrast-"] .bg-gray-50,
+[class*="contrast-"] .bg-gray-100,
+[class*="contrast-"] .bg-gray-200 {
+  background-color: var(--c-bg) !important;
+  color: var(--c-text) !important;
+}
+
+[class*="contrast-"] .text-black,
+[class*="contrast-"] .text-gray-800,
+[class*="contrast-"] .text-gray-700,
+[class*="contrast-"] .text-gray-600,
+[class*="contrast-"] .text-gray-500,
+[class*="contrast-"] .text-slate-800,
+[class*="contrast-"] .text-slate-700,
+[class*="contrast-"] .text-emerald-900,
+[class*="contrast-"] .text-rose-900 {
+  color: var(--c-text) !important;
+}
+
+[class*="contrast-"] .border-gray-100,
+[class*="contrast-"] .border-gray-200,
+[class*="contrast-"] .border-slate-200 {
+  border-color: var(--c-border) !important;
+}
+
+[class*="contrast-"] .bg-sky-500,
+[class*="contrast-"] .bg-sky-100,
+[class*="contrast-"] .bg-sky-50 {
+  background-color: var(--c-accent) !important;
+  color: var(--c-accent-text) !important;
+}
+
+[class*="contrast-"] .bg-gray-200.text-gray-500 {
+  background-color: var(--c-card) !important;
+  color: var(--c-muted) !important;
+}
+
+[class*="contrast-"] .bg-white.text-black {
+  background-color: var(--c-bg) !important;
+  color: var(--c-text) !important;
+}
+
+[class*="contrast-"] .bg-sky-500.text-white {
+  background-color: var(--c-accent) !important;
+  color: var(--c-accent-text) !important;
+}
+
+[class*="contrast-"] .bg-emerald-100 {
+  background-color: var(--c-card) !important;
+  border: 2px solid var(--c-border) !important;
+}
+
+[class*="contrast-"] .bg-rose-100,
+[class*="contrast-"] .bg-rose-50 {
+  background-color: var(--c-card) !important;
+  border: 2px solid var(--c-border) !important;
+}
+
+[class*="contrast-"] *:focus,
+[class*="contrast-"] *:focus-visible {
+  outline: 3px solid var(--c-accent) !important;
+  outline-offset: 2px !important;
+  border-radius: 4px !important;
+}

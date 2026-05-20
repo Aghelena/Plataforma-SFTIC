@@ -71,8 +71,10 @@ export default function TextReader() {
     }
 
     const content =
+      document.querySelector("[data-reader-content]") ||
       document.querySelector("#conteudo") ||
       document.querySelector("main") ||
+      document.querySelector("#root") ||
       document.body;
 
     if (!content) {
@@ -83,13 +85,44 @@ export default function TextReader() {
 
     clone
       .querySelectorAll(
-        "script, style, svg, nav, header, footer, select, [data-reader-ignore]"
+        [
+          "script",
+          "style",
+          "svg",
+          "canvas",
+          "noscript",
+          "iframe",
+          "[hidden]",
+          "[aria-hidden='true']",
+          "[data-reader-ignore]",
+        ].join(", ")
       )
       .forEach((element) => element.remove());
 
+    clone
+      .querySelectorAll("button, a, input, textarea, select, [aria-label], img")
+      .forEach((element) => {
+        const visibleText = element.innerText || element.textContent || "";
+
+        const label =
+          element.getAttribute("aria-label") ||
+          element.getAttribute("title") ||
+          element.getAttribute("alt") ||
+          element.getAttribute("placeholder") ||
+          element.getAttribute("value") ||
+          "";
+
+        if (!visibleText.trim() && label.trim()) {
+          element.textContent = label;
+        }
+      });
+
     const text = clone.innerText || clone.textContent || "";
 
-    return text.replace(/\s+/g, " ").trim();
+    return text
+      .replace(/\s+/g, " ")
+      .replace(/([.!?])\s*/g, "$1 ")
+      .trim();
   }
 
   function splitText(text) {
@@ -131,7 +164,7 @@ export default function TextReader() {
     const utterance = new SpeechSynthesisUtterance(text);
 
     utterance.lang = "pt-BR";
-    utterance.rate = 1;
+    utterance.rate = 0.75;
     utterance.pitch = 1;
     utterance.volume = 1;
 
@@ -148,7 +181,10 @@ export default function TextReader() {
       if (stoppedRef.current) return;
 
       indexRef.current += 1;
-      speakNextChunk();
+
+      setTimeout(() => {
+        speakNextChunk();
+      }, 500);
     };
 
     utterance.onerror = (event) => {
@@ -219,7 +255,7 @@ export default function TextReader() {
     setPaused(false);
   }
 
-  if (!supported) return null;
+ if (!supported || location.pathname.toLowerCase().startsWith("/admin")) return null;
 
   return (
     <div

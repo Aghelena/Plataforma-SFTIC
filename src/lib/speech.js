@@ -1,60 +1,11 @@
 // src/lib/speech.js
 
 export function isSpeechSupported() {
-  return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-}
-
-export function getVoices() {
-  if (!isSpeechSupported()) return [];
-  return window.speechSynthesis.getVoices();
-}
-
-export function getReadableText() {
-  const selectedText = window.getSelection()?.toString()?.trim();
-
-  if (selectedText) {
-    return selectedText;
-  }
-
-  const content =
-    document.querySelector("#conteudo") ||
-    document.querySelector("main") ||
-    document.body;
-
-  const clone = content.cloneNode(true);
-
-  clone
-    .querySelectorAll(
-      "script, style, svg, nav, header, footer, [data-reader-ignore]"
-    )
-    .forEach((element) => element.remove());
-
-  return clone.innerText.replace(/\s+/g, " ").trim();
-}
-
-export function splitTextIntoChunks(text) {
-  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
-
-  const chunks = [];
-  let currentChunk = "";
-
-  for (const sentence of sentences) {
-    if ((currentChunk + sentence).length > 220) {
-      if (currentChunk.trim()) {
-        chunks.push(currentChunk.trim());
-      }
-
-      currentChunk = sentence;
-    } else {
-      currentChunk += " " + sentence;
-    }
-  }
-
-  if (currentChunk.trim()) {
-    chunks.push(currentChunk.trim());
-  }
-
-  return chunks;
+  return (
+    typeof window !== "undefined" &&
+    "speechSynthesis" in window &&
+    "SpeechSynthesisUtterance" in window
+  );
 }
 
 export function stopSpeech() {
@@ -72,31 +23,89 @@ export function resumeSpeech() {
   window.speechSynthesis.resume();
 }
 
+// Cache de vozes — preenchido assim que o navegador as disponibilizar
+let _voiceCache = [];
+
+function _loadVoices() {
+  if (!isSpeechSupported()) return;
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length > 0) _voiceCache = voices;
+}
+
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  _loadVoices();
+  window.speechSynthesis.addEventListener("voiceschanged", _loadVoices);
+}
+
+export function getVoices() {
+  if (!isSpeechSupported()) return [];
+  if (_voiceCache.length === 0) _loadVoices();
+  return _voiceCache;
+}
+
+function _pickPtBRVoice() {
+  const voices = getVoices();
+  return (
+    voices.find((v) => v.name.includes("Luciana")) ||
+    voices.find((v) => v.lang === "pt-BR") ||
+    voices.find((v) => v.lang.startsWith("pt")) ||
+    null
+  );
+}
+
 export function speakText(text, options = {}) {
+  if (!text) return;
   if (!isSpeechSupported()) {
-    throw new Error("Seu navegador não suporta leitura por voz.");
+    console.error("SpeechSynthesis não é suportado neste navegador.");
+    return;
   }
+
+  window.speechSynthesis.cancel();
 
   const utterance = new SpeechSynthesisUtterance(text);
-
-  utterance.lang = options.lang || "pt-BR";
-  utterance.rate = options.rate || 1;
-  utterance.pitch = options.pitch || 1;
+  utterance.lang   = options.lang   || "pt-BR";
+  utterance.rate   = options.rate   || 0.75;
+  utterance.pitch  = options.pitch  || 1;
   utterance.volume = options.volume || 1;
 
-  if (options.voice) {
-    utterance.voice = options.voice;
-  }
+  const voice = _pickPtBRVoice();
+  if (voice) utterance.voice = voice;
 
-  if (options.onEnd) {
-    utterance.onend = options.onEnd;
-  }
-
-  if (options.onError) {
-    utterance.onerror = options.onError;
+  // Fallback: se as vozes ainda não carregaram, aguarda e tenta novamente
+  if (!voice && _voiceCache.length === 0) {
+    const retry = () => {
+      _loadVoices();
+      const v = _pickPtBRVoice();
+      const u2 = new SpeechSynthesisUtterance(text);
+      u2.lang   = utterance.lang;
+      u2.rate   = utterance.rate;
+      u2.pitch  = utterance.pitch;
+      u2.volume = utterance.volume;
+      if (v) u2.voice = v;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u2);
+      window.speechSynthesis.removeEventListener("voiceschanged", retry);
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", retry);
   }
 
   window.speechSynthesis.speak(utterance);
+}
 
-  return utterance;
+export function speak(text, options = {}) {
+  return speakText(text, options);
+}
+
+export const stopSpeak = stopSpeech;
+
+export function readCorrectAnswer() {
+  return speak("Resposta correta!");
+}
+
+export function readWrongAnswer() {
+  return speak("Resposta incorreta. Tente novamente.");
+}
+
+export function readText(text) {
+  return speak(text);
 }

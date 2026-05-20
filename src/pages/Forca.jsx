@@ -1,42 +1,31 @@
 // src/pages/Forca.jsx
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { speak } from "../lib/speech";
 
-/** Palavras-base (mantenha acentos/espaços; a lógica normaliza só para comparar) */
 const WORDS = [
-  // bichinhos
   "GATO", "RATO", "PATO", "SAPA", "SAPO", "PEIXE", "VACA", "BURRO",
-  // comidinhas
   "BOLO", "SOPA", "BALA", "BISCOITO", "PIPOCA", "SUCO", "PIZZA",
-  // coisas bobas/fun
   "PULA", "BOLA", "BUBU", "BIBI", "DODO", "MIMO", "BICO",
-  // objetos simples
-  "MESA", "CAMA", "SOFA", "FITA", "FITA", "COLA", "FONE", "LIVRO",
-  // roupas
+  "MESA", "CAMA", "SOFA", "FITA", "COLA", "FONE", "LIVRO",
   "MEIA", "SAPATO", "BOTA", "SAIA",
-  // lugares simples
   "PARQUE", "PRAIA", "ESCOLA",
-  // animais engraçadinhos
   "GALINHA", "COELHO", "PORCO",
-  // palavras “bobinhas” mas inofensivas
   "BOBO", "MIMI", "TITI", "FOFO", "FOFA", "XUXU",
-  // com acento (se quiser variar)
   "GELÉIA", "CAFÉ", "FÉRIAS", "PÃO",
 ];
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const MAX_MISTAKES = 6;
 
 function strip(str) {
-  // normaliza para comparar (remove acentos), mantém uppercase
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 }
 
 function pickWord() {
-  const w = WORDS[Math.floor(Math.random() * WORDS.length)];
-  return w;
+  return WORDS[Math.floor(Math.random() * WORDS.length)];
 }
 
-/** Desenho do boneco conforme erros (0..6) */
 function HangmanSVG({ mistakes }) {
   return (
     <svg
@@ -45,24 +34,15 @@ function HangmanSVG({ mistakes }) {
       viewBox="0 0 200 200"
       className="w-full h-48 sm:h-56 md:h-64"
     >
-      {/* Base */}
       <line x1="10" y1="190" x2="190" y2="190" stroke="currentColor" strokeWidth="6" />
-      {/* Poste */}
       <line x1="40" y1="190" x2="40" y2="20" stroke="currentColor" strokeWidth="6" />
       <line x1="36" y1="20" x2="120" y2="20" stroke="currentColor" strokeWidth="6" />
       <line x1="120" y1="20" x2="120" y2="40" stroke="currentColor" strokeWidth="6" />
-      {/* Partes do boneco */}
-      {/* 1: cabeça */}
       {mistakes > 0 && <circle cx="120" cy="60" r="20" stroke="currentColor" strokeWidth="4" fill="none" />}
-      {/* 2: tronco */}
       {mistakes > 1 && <line x1="120" y1="80" x2="120" y2="120" stroke="currentColor" strokeWidth="4" />}
-      {/* 3: braço esquerdo */}
       {mistakes > 2 && <line x1="120" y1="90" x2="100" y2="110" stroke="currentColor" strokeWidth="4" />}
-      {/* 4: braço direito */}
       {mistakes > 3 && <line x1="120" y1="90" x2="140" y2="110" stroke="currentColor" strokeWidth="4" />}
-      {/* 5: perna esquerda */}
       {mistakes > 4 && <line x1="120" y1="120" x2="105" y2="145" stroke="currentColor" strokeWidth="4" />}
-      {/* 6: perna direita */}
       {mistakes > 5 && <line x1="120" y1="120" x2="135" y2="145" stroke="currentColor" strokeWidth="4" />}
     </svg>
   );
@@ -95,9 +75,7 @@ function Key({ letter, disabled, pressed, onClick }) {
       aria-label={`Letra ${letter}${pressed ? " já tentada" : ""}`}
       className={[
         "rounded-xl px-3 py-2 text-sm font-semibold transition shadow-sm",
-        pressed
-          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-          : "bg-white hover:bg-sky-50 text-gray-800",
+        pressed ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-sky-50 text-gray-800",
         disabled ? "opacity-60 cursor-not-allowed" : "",
         "border border-gray-200",
       ].join(" ")}
@@ -111,18 +89,25 @@ export default function Forca() {
   const navigate = useNavigate();
   const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate("/"));
 
-  const [word, setWord] = useState(() => pickWord()); // palavra original (com acentos/espacos)
-  const [guessed, setGuessed] = useState(() => new Set()); // letras já tentadas (A..Z)
+  const [word, setWord] = useState(() => pickWord());
+  const [guessed, setGuessed] = useState(() => new Set());
   const [mistakes, setMistakes] = useState(0);
   const [time, setTime] = useState(0);
   const [running, setRunning] = useState(true);
 
-  const MAX_MISTAKES = 6;
+  const liveRef = useRef(null);
+
+  function announce(msg) {
+    speak(msg);
+    if (liveRef.current) {
+      liveRef.current.textContent = "";
+      setTimeout(() => { liveRef.current.textContent = msg; }, 20);
+    }
+  }
 
   const normalizedWord = useMemo(() => strip(word), [word]);
 
   const lettersInWord = useMemo(() => {
-    // conjunto de letras (A..Z) que compõem a palavra (ignorando espaços/hífens e acentos)
     const set = new Set();
     for (const ch of normalizedWord) {
       if (/[A-Z]/.test(ch)) set.add(ch);
@@ -132,14 +117,22 @@ export default function Forca() {
 
   const correctGuesses = useMemo(() => {
     let count = 0;
-    lettersInWord.forEach((ch) => {
-      if (guessed.has(ch)) count++;
-    });
+    lettersInWord.forEach((ch) => { if (guessed.has(ch)) count++; });
     return count;
   }, [lettersInWord, guessed]);
 
-  const won = useMemo(() => correctGuesses === lettersInWord.size && lettersInWord.size > 0, [correctGuesses, lettersInWord]);
+  const won  = useMemo(() => correctGuesses === lettersInWord.size && lettersInWord.size > 0, [correctGuesses, lettersInWord]);
   const lost = useMemo(() => mistakes >= MAX_MISTAKES, [mistakes]);
+
+  function readScreen() {
+    const revealedLetters = [...guessed].filter(l => lettersInWord.has(l));
+    announce(
+      `Jogo da Forca. A palavra tem ${lettersInWord.size} letras. ` +
+      `Você acertou ${revealedLetters.length} até agora. ` +
+      `Erros: ${mistakes} de ${MAX_MISTAKES}. ` +
+      `Pressione uma letra do teclado para tentar.`
+    );
+  }
 
   // Timer
   useEffect(() => {
@@ -148,75 +141,86 @@ export default function Forca() {
     return () => clearInterval(id);
   }, [running]);
 
-  // Stop timer and save best when ends
+  // Resultado: anuncia e salva recorde
   useEffect(() => {
-    if (won || lost) {
+    if (won) {
       setRunning(false);
+      announce(`Parabéns! Você acertou a palavra ${word} com ${mistakes} erro${mistakes !== 1 ? "s" : ""}.`);
       try {
         const best = JSON.parse(localStorage.getItem("hangman_best") || "{}");
-        const newBest = {
+        localStorage.setItem("hangman_best", JSON.stringify({
           time: best.time ? Math.min(best.time, time) : time,
-          mistakes: best.mistakes ? Math.min(best.mistakes, mistakes) : mistakes,
-        };
-        localStorage.setItem("hangman_best", JSON.stringify(newBest));
+          mistakes: best.mistakes !== undefined ? Math.min(best.mistakes, mistakes) : mistakes,
+        }));
       } catch {}
     }
-  }, [won, lost, time, mistakes]);
+    if (lost) {
+      setRunning(false);
+      announce(`Fim de jogo! A palavra era ${word}. Tente novamente.`);
+      try {
+        const best = JSON.parse(localStorage.getItem("hangman_best") || "{}");
+        localStorage.setItem("hangman_best", JSON.stringify({
+          time: best.time ? Math.min(best.time, time) : time,
+          mistakes: best.mistakes !== undefined ? Math.min(best.mistakes, mistakes) : mistakes,
+        }));
+      } catch {}
+    }
+  }, [won, lost]); // eslint-disable-line
 
   const best = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("hangman_best") || "{}");
-    } catch {
-      return {};
-    }
+    try { return JSON.parse(localStorage.getItem("hangman_best") || "{}"); }
+    catch { return {}; }
   }, [won, lost]);
 
   const reveal = useMemo(() => {
-    // mostra a palavra com letras descobertas (mantém acentos, espaços e pontuação)
-    const g = guessed;
     const norm = normalizedWord;
     let out = "";
     for (let i = 0; i < word.length; i++) {
       const orig = word[i];
       const n = norm[i] ?? orig;
-      if (!/[A-Z]/.test(strip(orig))) {
-        out += orig; // espaço/hífen/símbolo sempre visível
-      } else {
-        out += g.has(n) ? orig : "•";
-      }
+      if (!/[A-Z]/.test(strip(orig))) { out += orig; }
+      else { out += guessed.has(n) ? orig : "•"; }
     }
     return out;
   }, [word, normalizedWord, guessed]);
 
-  const remaining = Math.max(0, MAX_MISTAKES - mistakes);
+  const remaining    = Math.max(0, MAX_MISTAKES - mistakes);
   const totalLetters = lettersInWord.size;
+
+  // Anuncia início
+  useEffect(() => {
+    announce(`Jogo da Forca iniciado. A palavra tem ${lettersInWord.size} letras. Pressione uma letra do teclado para tentar.`);
+  }, []); // eslint-disable-line
 
   const guessLetter = useCallback(
     (letter) => {
       if (won || lost) return;
       const L = letter.toUpperCase();
       if (!/[A-Z]/.test(L)) return;
-      if (guessed.has(L)) return;
-
+      if (guessed.has(L)) {
+        announce(`A letra ${L} já foi tentada.`);
+        return;
+      }
       setGuessed((prev) => new Set(prev).add(L));
       if (lettersInWord.has(L)) {
-        // acerto
+        announce(`Acertou! A letra ${L} está na palavra.`);
       } else {
-        setMistakes((m) => m + 1);
+        setMistakes((m) => {
+          const next = m + 1;
+          announce(`Errou. A letra ${L} não está na palavra. ${MAX_MISTAKES - next} chances restantes.`);
+          return next;
+        });
       }
     },
     [guessed, won, lost, lettersInWord]
   );
 
-  // Suporte ao teclado físico
+  // Teclado físico
   useEffect(() => {
     const onKey = (e) => {
       if (won || lost) return;
       const key = e.key.toUpperCase();
-      if (/^[A-Z]$/.test(key)) {
-        e.preventDefault();
-        guessLetter(key);
-      }
+      if (/^[A-Z]$/.test(key)) { e.preventDefault(); guessLetter(key); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -228,6 +232,7 @@ export default function Forca() {
     setMistakes(0);
     setTime(0);
     setRunning(true);
+    setTimeout(() => announce("Novo jogo iniciado. Boa sorte!"), 100);
   };
 
   const formatTime = (total) => {
@@ -238,32 +243,26 @@ export default function Forca() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
+
       <header className="bg-sky-500 text-white sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          {/* Voltar */}
-          <button
-            onClick={goBack}
-            className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold"
-            aria-label="Voltar"
-          >
+          <button onClick={goBack} className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold" aria-label="Voltar">
             ← Voltar
           </button>
-
-          {/* Título */}
           <h1 className="font-bold text-black">Jogo da Forca</h1>
-
-          {/* Reiniciar */}
-          <button
-            onClick={restart}
-            className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white"
-          >
-            Reiniciar
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={readScreen} className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white" aria-label="Ler situação do jogo da forca" title="Ler tela">
+              🔊
+            </button>
+            <button onClick={restart} className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white" aria-label="Reiniciar jogo da forca">
+              Reiniciar
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
-        {/* Painel de status */}
         <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Stat label="Erros" value={mistakes} />
           <Stat label="Restantes" value={remaining} />
@@ -275,17 +274,11 @@ export default function Forca() {
           </div>
         </div>
 
-        {/* Desenho da forca */}
         <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 mb-4 text-gray-800">
           <HangmanSVG mistakes={mistakes} />
         </section>
 
-        {/* Palavra revelada */}
-        <section
-          role="status"
-          aria-live="polite"
-          className="mb-4 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 text-center"
-        >
+        <section role="status" aria-live="polite" className="mb-4 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 text-center">
           <div className="text-sm uppercase tracking-wide text-black mb-1">Palavra</div>
           <div className="font-mono text-2xl sm:text-3xl text-black break-words">{reveal}</div>
           <div className="mt-2 text-xs text-black">
@@ -293,36 +286,22 @@ export default function Forca() {
           </div>
         </section>
 
-        {/* Teclado */}
         <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
           <div className="grid grid-cols-8 sm:grid-cols-12 gap-2 select-none">
             {ALPHABET.map((L) => (
-              <Key
-                key={L}
-                letter={L}
-                pressed={guessed.has(L)}
-                disabled={won || lost}
-                onClick={() => guessLetter(L)}
-              />
+              <Key key={L} letter={L} pressed={guessed.has(L)} disabled={won || lost} onClick={() => guessLetter(L)} />
             ))}
           </div>
         </section>
 
-        {/* Mensagens de fim */}
         {won && (
-          <div
-            role="status"
-            className="mt-6 p-4 rounded-xl bg-emerald-100 text-emerald-900 font-semibold text-center"
-          >
-             Parabéns! Você acertou “{word}” com {mistakes} erro{mistakes !== 1 ? "s" : ""} em {formatTime(time)}.
+          <div role="status" className="mt-6 p-4 rounded-xl bg-emerald-100 text-emerald-900 font-semibold text-center">
+            Parabéns! Você acertou "{word}" com {mistakes} erro{mistakes !== 1 ? "s" : ""} em {formatTime(time)}.
           </div>
         )}
         {lost && (
-          <div
-            role="status"
-            className="mt-6 p-4 rounded-xl bg-rose-100 text-rose-900 font-semibold text-center"
-          >
-            Fim de jogo! A palavra era “{word}”. Tente novamente.
+          <div role="status" className="mt-6 p-4 rounded-xl bg-rose-100 text-rose-900 font-semibold text-center">
+            Fim de jogo! A palavra era "{word}". Tente novamente.
           </div>
         )}
       </main>

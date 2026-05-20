@@ -1,5 +1,4 @@
 // server/controllers/analyticsController.js
-
 import pool from "../db.js";
 
 /**
@@ -18,105 +17,85 @@ async function safeQuery(sql, params = [], fallbackRows = []) {
     ];
 
     if (ignorableErrors.includes(err.code)) {
-      console.warn("Query ignorada no dashboard:", err.message);
-      return { rows: fallbackRows };
+      console.warn("Query ignorada (tabela/coluna ausente):", err.message);
+      return { rows: fallbackRows, rowCount: 0 };
     }
 
     throw err;
   }
 }
 
-export async function getDashboardSummary(req, res) {
+export async function getDashboardSummary(_req, res) {
   try {
     const loginsHojeRes = await safeQuery(
-      `
-      SELECT COUNT(*)::int AS total_logins_dia
-      FROM user_events
-      WHERE event_type = 'login'
-      AND created_at::date = CURRENT_DATE;
-      `,
+      `SELECT COUNT(*)::int AS total_logins_dia
+       FROM user_events
+       WHERE event_type = 'login'
+       AND created_at::date = CURRENT_DATE`,
       [],
       [{ total_logins_dia: 0 }]
     );
 
     const ativos30Res = await safeQuery(
-      `
-      SELECT COUNT(DISTINCT user_id)::int AS usuarios_ativos_30_dias
-      FROM user_events
-      WHERE created_at >= CURRENT_DATE - INTERVAL '30 days';
-      `,
+      `SELECT COUNT(DISTINCT user_id)::int AS usuarios_ativos_30_dias
+       FROM user_events
+       WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'`,
       [],
       [{ usuarios_ativos_30_dias: 0 }]
     );
 
     const acoesPorUsuarioRes = await safeQuery(
-      `
-      SELECT 
-        COALESCE(
-          ROUND(
-            COUNT(*)::numeric / NULLIF(COUNT(DISTINCT user_id), 0),
-            2
-          ),
-          0
-        )::numeric AS acoes_por_usuario_30d
-      FROM user_events
-      WHERE created_at >= CURRENT_DATE - INTERVAL '30 days';
-      `,
+      `SELECT
+         COALESCE(
+           ROUND(COUNT(*)::numeric / NULLIF(COUNT(DISTINCT user_id), 0), 2),
+           0
+         )::numeric AS acoes_por_usuario_30d
+       FROM user_events
+       WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'`,
       [],
       [{ acoes_por_usuario_30d: 0 }]
     );
 
     const jogosRes = await safeQuery(
-      `
-      SELECT
-        game_type AS game,
-        COUNT(*)::int AS total_sessoes,
-        COUNT(DISTINCT user_id)::int AS usuarios_unicos,
-        COALESCE(AVG(duration_seconds), 0)::int AS tempo_medio_segundos,
-        COALESCE(AVG((metadata->>'score')::numeric), 0)::numeric AS assertividade_media
-      FROM game_sessions
-      GROUP BY game_type
-      ORDER BY assertividade_media DESC;
-      `,
+      `SELECT
+         game_type AS game,
+         COUNT(*)::int AS total_sessoes,
+         COUNT(DISTINCT user_id)::int AS usuarios_unicos,
+         COALESCE(AVG(duration_seconds), 0)::int AS tempo_medio_segundos,
+         COALESCE(AVG((metadata->>'score')::numeric), 0)::numeric AS assertividade_media
+       FROM game_sessions
+       GROUP BY game_type
+       ORDER BY assertividade_media DESC`,
       [],
       []
     );
 
     const acessibilidadeRes = await safeQuery(
-      `
-      SELECT 
-        event_type AS recurso,
-        COUNT(*)::int AS total_usos
-      FROM user_events
-      WHERE event_type IN (
-        'toggle_contrast',
-        'vibras_enabled',
-        'audio_description_active'
-      )
-      GROUP BY event_type
-      ORDER BY total_usos DESC;
-      `,
+      `SELECT
+         event_type AS recurso,
+         COUNT(*)::int AS total_usos
+       FROM user_events
+       WHERE event_type IN (
+         'toggle_contrast',
+         'vibras_enabled',
+         'audio_description_active'
+       )
+       GROUP BY event_type
+       ORDER BY total_usos DESC`,
       [],
       []
     );
 
     return res.json({
-      total_logins_dia: Number(loginsHojeRes.rows[0]?.total_logins_dia || 0),
-      usuarios_ativos_30_dias: Number(
-        ativos30Res.rows[0]?.usuarios_ativos_30_dias || 0
-      ),
-      acoes_por_usuario_30d: Number(
-        acoesPorUsuarioRes.rows[0]?.acoes_por_usuario_30d || 0
-      ),
-      jogos: jogosRes.rows || [],
+      total_logins_dia:        Number(loginsHojeRes.rows[0]?.total_logins_dia        || 0),
+      usuarios_ativos_30_dias: Number(ativos30Res.rows[0]?.usuarios_ativos_30_dias   || 0),
+      acoes_por_usuario_30d:   Number(acoesPorUsuarioRes.rows[0]?.acoes_por_usuario_30d || 0),
+      jogos:          jogosRes.rows         || [],
       acessibilidade: acessibilidadeRes.rows || [],
     });
   } catch (err) {
     console.error("Erro ao gerar dashboard:", err);
-
-    return res.status(500).json({
-      error: "Erro ao gerar dashboard",
-    });
+    return res.status(500).json({ error: "Erro ao gerar dashboard." });
   }
 }
 
@@ -125,110 +104,78 @@ export async function getUserSummary(req, res) {
     const userId = req.params.userId || req.query.userId;
 
     if (!userId) {
-      return res.status(400).json({
-        error: "userId é obrigatório",
-      });
+      return res.status(400).json({ error: "userId é obrigatório." });
     }
 
     const usuarioRes = await safeQuery(
-      `
-      SELECT 
-        id,
-        name,
-        created_at
-      FROM users
-      WHERE id = $1;
-      `,
+      `SELECT id, name, created_at FROM users WHERE id = $1`,
       [userId],
       []
     );
 
+    if (!usuarioRes.rows[0]) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+
     const sessoesRes = await safeQuery(
-      `
-      SELECT
-        COUNT(*)::int AS total_sessoes,
-        COALESCE(AVG(duration_seconds), 0)::int AS tempo_medio_segundos,
-        COALESCE(AVG((metadata->>'score')::numeric), 0)::numeric AS assertividade_media
-      FROM game_sessions
-      WHERE user_id = $1;
-      `,
+      `SELECT
+         COUNT(*)::int AS total_sessoes,
+         COALESCE(AVG(duration_seconds), 0)::int AS tempo_medio_segundos,
+         COALESCE(AVG((metadata->>'score')::numeric), 0)::numeric AS assertividade_media
+       FROM game_sessions
+       WHERE user_id = $1`,
       [userId],
-      [
-        {
-          total_sessoes: 0,
-          tempo_medio_segundos: 0,
-          assertividade_media: 0,
-        },
-      ]
+      [{ total_sessoes: 0, tempo_medio_segundos: 0, assertividade_media: 0 }]
     );
 
     const jogosRes = await safeQuery(
-      `
-      SELECT
-        game_type AS game,
-        COUNT(*)::int AS total_sessoes,
-        COALESCE(AVG(duration_seconds), 0)::int AS tempo_medio_segundos,
-        COALESCE(AVG((metadata->>'score')::numeric), 0)::numeric AS assertividade_media
-      FROM game_sessions
-      WHERE user_id = $1
-      GROUP BY game_type
-      ORDER BY total_sessoes DESC;
-      `,
+      `SELECT
+         game_type AS game,
+         COUNT(*)::int AS total_sessoes,
+         COALESCE(AVG(duration_seconds), 0)::int AS tempo_medio_segundos,
+         COALESCE(AVG((metadata->>'score')::numeric), 0)::numeric AS assertividade_media
+       FROM game_sessions
+       WHERE user_id = $1
+       GROUP BY game_type
+       ORDER BY total_sessoes DESC`,
       [userId],
       []
     );
 
     return res.json({
-      usuario: usuarioRes.rows[0] || null,
+      usuario: usuarioRes.rows[0],
       resumo: {
-        total_sessoes: Number(sessoesRes.rows[0]?.total_sessoes || 0),
-        tempo_medio_segundos: Number(
-          sessoesRes.rows[0]?.tempo_medio_segundos || 0
-        ),
-        assertividade_media: Number(
-          sessoesRes.rows[0]?.assertividade_media || 0
-        ),
+        total_sessoes:        Number(sessoesRes.rows[0]?.total_sessoes        || 0),
+        tempo_medio_segundos: Number(sessoesRes.rows[0]?.tempo_medio_segundos || 0),
+        assertividade_media:  Number(sessoesRes.rows[0]?.assertividade_media  || 0),
       },
       jogos: jogosRes.rows || [],
     });
   } catch (err) {
     console.error("Erro ao gerar resumo do usuário:", err);
-
-    return res.status(500).json({
-      error: "Erro ao gerar resumo do usuário",
-    });
+    return res.status(500).json({ error: "Erro ao gerar resumo do usuário." });
   }
 }
 
 export async function postGameSession(req, res) {
   try {
     const {
-      user_id,
-      userId,
-      game_type,
-      gameType,
-      game,
-      score,
-      total,
-      duration_seconds,
-      durationSeconds,
+      user_id, userId,
+      game_type, gameType, game,
+      score, total,
+      duration_seconds, durationSeconds,
       metadata = {},
     } = req.body;
 
-    const finalUserId = user_id || userId;
-    const finalGameType = game_type || gameType || game;
-    const finalDuration = duration_seconds || durationSeconds || 0;
+    const finalUserId    = user_id   || userId;
+    const finalGameType  = game_type || gameType || game;
+    const finalDuration  = duration_seconds || durationSeconds || 0;
 
     if (!finalUserId) {
-      return res.status(400).json({
-        error: "user_id é obrigatório",
-      });
+      return res.status(400).json({ error: "user_id é obrigatório." });
     }
-
     if (!finalGameType) {
-      return res.status(400).json({
-        error: "game_type é obrigatório",
-      });
+      return res.status(400).json({ error: "game_type é obrigatório." });
     }
 
     const finalMetadata = {
@@ -237,29 +184,27 @@ export async function postGameSession(req, res) {
       total: total ?? metadata.total ?? 0,
     };
 
-    const insertRes = await pool.query(
-      `
-      INSERT INTO game_sessions (
-        user_id,
-        game_type,
-        duration_seconds,
-        metadata
-      )
-      VALUES ($1, $2, $3, $4)
-      RETURNING *;
-      `,
-      [finalUserId, finalGameType, finalDuration, finalMetadata]
+    // safeQuery aqui: se game_sessions ainda não existir, retorna 503 amigável
+    const insertRes = await safeQuery(
+      `INSERT INTO game_sessions (user_id, game_type, duration_seconds, metadata)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [finalUserId, finalGameType, finalDuration, finalMetadata],
+      null // null = não tem fallback; vai cair no bloco abaixo
     );
 
+    if (!insertRes || !insertRes.rows) {
+      return res.status(503).json({
+        error: "Tabela game_sessions ainda não está disponível. Tente novamente em instantes.",
+      });
+    }
+
     return res.status(201).json({
-      message: "Sessão registrada com sucesso",
+      message: "Sessão registrada com sucesso.",
       session: insertRes.rows[0],
     });
   } catch (err) {
     console.error("Erro ao registrar sessão:", err);
-
-    return res.status(500).json({
-      error: "Erro ao registrar sessão",
-    });
+    return res.status(500).json({ error: "Erro ao registrar sessão." });
   }
 }
