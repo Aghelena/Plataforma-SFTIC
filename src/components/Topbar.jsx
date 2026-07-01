@@ -61,19 +61,6 @@ export default function Topbar() {
             </button>
           )}
 
-          <button
-            onClick={toggleReader}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition ${
-              readerOn
-                ? "bg-sky-100 text-sky-700 hover:bg-sky-200"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-            aria-pressed={readerOn}
-            aria-label={readerOn ? "Desativar leitor de voz" : "Ativar leitor de voz"}
-          >
-            {readerOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
-            {readerOn ? "Leitor ON" : "Leitor OFF"}
-          </button>
         </div>
       </div>
     </header>

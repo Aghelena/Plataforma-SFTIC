@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  PlusCircle, Trash2, X, Activity,
+  PlusCircle, Trash2, X, Activity, Pencil, Save,
   Users, Gamepad2, Clock, Target,
 } from "lucide-react";
 import { store } from "../lib/store.js";
@@ -38,6 +38,158 @@ function fmtSeconds(s) {
   const m = Math.floor(s / 60);
   const ss = s % 60;
   return m > 0 ? `${m}min ${ss}s` : `${ss}s`;
+}
+
+// ─── quizzes padrão ─────────────────────────────────────────
+// Os mesmos 3 quizzes padrão usados no Quiz.jsx. Sempre aparecem
+// na lista do painel, mesclados com os quizzes criados pelo admin.
+const DEFAULT_QUIZZES = [
+  {
+    id: "quiz-curiosidades-animais",
+    title: "Curiosidades sobre Animais",
+    description: "Um quiz divertido pra testar o que você sabe sobre bichos.",
+    timePerQuestion: 20,
+    questions: [
+      {
+        q: "Qual desses animais consegue dormir com um olho aberto?",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "Golfinho", image: null, imageAlt: "" },
+          { text: "Coelho", image: null, imageAlt: "" },
+          { text: "Gato", image: null, imageAlt: "" },
+        ],
+        correct: 0,
+      },
+      {
+        q: "Qual é o maior animal terrestre do mundo?",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "Elefante-africano", image: null, imageAlt: "" },
+          { text: "Girafa", image: null, imageAlt: "" },
+          { text: "Rinoceronte", image: null, imageAlt: "" },
+        ],
+        correct: 0,
+      },
+      {
+        q: "As abelhas se comunicam principalmente através de:",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "Sons", image: null, imageAlt: "" },
+          { text: "Danças", image: null, imageAlt: "" },
+        ],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: "quiz-geografia-mundo",
+    title: "Volta ao Mundo",
+    description: "Teste seus conhecimentos de geografia com perguntas rápidas.",
+    timePerQuestion: 20,
+    questions: [
+      {
+        q: "Qual é o maior oceano do planeta?",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "Oceano Atlântico", image: null, imageAlt: "" },
+          { text: "Oceano Pacífico", image: null, imageAlt: "" },
+          { text: "Oceano Índico", image: null, imageAlt: "" },
+        ],
+        correct: 1,
+      },
+      {
+        q: "A Torre Eiffel fica em qual cidade?",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "Paris", image: null, imageAlt: "" },
+          { text: "Roma", image: null, imageAlt: "" },
+        ],
+        correct: 0,
+      },
+      {
+        q: "Qual é o maior país do mundo em área territorial?",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "China", image: null, imageAlt: "" },
+          { text: "Canadá", image: null, imageAlt: "" },
+          { text: "Rússia", image: null, imageAlt: "" },
+        ],
+        correct: 2,
+      },
+    ],
+  },
+  {
+    id: "quiz-ciencia-curiosa",
+    title: "Ciência Curiosa",
+    description: "Pequenas curiosidades científicas para exercitar a mente.",
+    timePerQuestion: 25,
+    questions: [
+      {
+        q: "Qual é o estado físico da água a 0°C, no nível do mar?",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "Líquido", image: null, imageAlt: "" },
+          { text: "Sólido (gelo)", image: null, imageAlt: "" },
+        ],
+        correct: 1,
+      },
+      {
+        q: "Quantos ossos tem, aproximadamente, o corpo humano adulto?",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "206", image: null, imageAlt: "" },
+          { text: "150", image: null, imageAlt: "" },
+          { text: "300", image: null, imageAlt: "" },
+        ],
+        correct: 0,
+      },
+      {
+        q: "Qual planeta do sistema solar é conhecido como 'planeta vermelho'?",
+        image: null,
+        imageAlt: "",
+        opts: [
+          { text: "Vênus", image: null, imageAlt: "" },
+          { text: "Marte", image: null, imageAlt: "" },
+          { text: "Júpiter", image: null, imageAlt: "" },
+        ],
+        correct: 1,
+      },
+    ],
+  },
+];
+
+function mergeWithDefaultQuizzes(saved) {
+  const list = Array.isArray(saved) ? saved : [];
+  const savedIds = new Set(list.map((q) => q.id));
+  return [
+    ...DEFAULT_QUIZZES.filter((d) => !savedIds.has(d.id)),
+    ...list,
+  ];
+}
+
+// ─── quiz: helpers de dados ────────────────────────────────────
+// Mesmo formato usado pelo Quiz.jsx (normalizeQuiz/normalizeOption),
+// para o que for criado/editado aqui já funcionar lá sem ajuste extra.
+function emptyOption() {
+  return { text: "", image: null, imageAlt: "" };
+}
+
+function emptyQuestion() {
+  return {
+    q: "",
+    image: null,
+    imageAlt: "",
+    correct: 0,
+    opts: [emptyOption(), emptyOption()],
+  };
 }
 
 // ─── componentes menores ──────────────────────────────────────
@@ -75,11 +227,6 @@ function MetricCard({ label, value, sub, icon }) {
 // ─── gráfico de barras inline (sem dependência externa) ───────
 function BarChart({ data, colorKey }) {
   const max = Math.max(...data.map((d) => d.value), 1);
-  const COLORS = {
-    purple: "#534AB7", teal: "#1D9E75",
-    coral: "#D85A30", gray: "#888780",
-    blue: "#378ADD",  green: "#639922",
-  };
   const palette = ["#534AB7", "#1D9E75", "#D85A30", "#888780", "#378ADD", "#639922"];
 
   return (
@@ -158,7 +305,6 @@ function TabDashboard({ quizzes }) {
   const jogos        = data?.jogos          ?? [];
   const acess        = data?.acessibilidade ?? [];
   const totalSessoes = jogos.reduce((s, j) => s + (j.total_sessoes || 0), 0);
-  const jogoTop      = jogos[0]?.game ?? "—";
   const assertMedia  = jogos.length
     ? Math.round(jogos.reduce((s, j) => s + Number(j.assertividade_media || 0), 0) / jogos.length)
     : 0;
@@ -472,10 +618,283 @@ function TabUsers() {
   );
 }
 
+// ─── aba quiz: editor de perguntas ─────────────────────────────
+// Edita um quiz completo (título, descrição, tempo e a lista de
+// perguntas/alternativas). Usado tanto para "Novo Quiz" quanto
+// para "Editar".
+function QuizEditor({ quiz, onSave, onCancel }) {
+  const [draft, setDraft] = useState(quiz);
+
+  function updateField(field, value) {
+    setDraft((p) => ({ ...p, [field]: value }));
+  }
+
+  function addQuestion() {
+    setDraft((p) => ({ ...p, questions: [...p.questions, emptyQuestion()] }));
+  }
+
+  function removeQuestion(qIndex) {
+    setDraft((p) => ({
+      ...p,
+      questions: p.questions.filter((_, i) => i !== qIndex),
+    }));
+  }
+
+  function updateQuestion(qIndex, field, value) {
+    setDraft((p) => ({
+      ...p,
+      questions: p.questions.map((q, i) =>
+        i === qIndex ? { ...q, [field]: value } : q
+      ),
+    }));
+  }
+
+  function addOption(qIndex) {
+    setDraft((p) => ({
+      ...p,
+      questions: p.questions.map((q, i) => {
+        if (i !== qIndex) return q;
+        if (q.opts.length >= 4) return q;
+        return { ...q, opts: [...q.opts, emptyOption()] };
+      }),
+    }));
+  }
+
+  function removeOption(qIndex, optIndex) {
+    setDraft((p) => ({
+      ...p,
+      questions: p.questions.map((q, i) => {
+        if (i !== qIndex) return q;
+        if (q.opts.length <= 2) return q; // mínimo de 2 alternativas
+        const opts = q.opts.filter((_, j) => j !== optIndex);
+        // se a alternativa correta foi removida, ou o índice mudou, ajusta
+        let correct = q.correct;
+        if (optIndex === q.correct) correct = 0;
+        else if (optIndex < q.correct) correct = q.correct - 1;
+        return { ...q, opts, correct };
+      }),
+    }));
+  }
+
+  function updateOption(qIndex, optIndex, field, value) {
+    setDraft((p) => ({
+      ...p,
+      questions: p.questions.map((q, i) => {
+        if (i !== qIndex) return q;
+        return {
+          ...q,
+          opts: q.opts.map((o, j) =>
+            j === optIndex ? { ...o, [field]: value } : o
+          ),
+        };
+      }),
+    }));
+  }
+
+  function setCorrect(qIndex, optIndex) {
+    updateQuestion(qIndex, "correct", optIndex);
+  }
+
+  function handleSave() {
+    if (!draft.title.trim()) {
+      alert("Informe o título do quiz.");
+      return;
+    }
+    for (let i = 0; i < draft.questions.length; i++) {
+      const q = draft.questions[i];
+      if (!q.q.trim()) {
+        alert(`Preencha o texto da pergunta ${i + 1}.`);
+        return;
+      }
+      if (q.opts.some((o) => !o.text.trim())) {
+        alert(`Preencha todas as alternativas da pergunta ${i + 1}.`);
+        return;
+      }
+    }
+    onSave(draft);
+  }
+
+  return (
+    <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-lg text-slate-800">
+          {quiz.__isNew ? "Novo quiz" : `Editando: ${quiz.title}`}
+        </h2>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 text-white hover:bg-sky-600 font-medium transition"
+          >
+            <Save size={16} /> Salvar
+          </button>
+        </div>
+      </div>
+
+      {/* dados do quiz */}
+      <div className="grid md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Título</label>
+          <input
+            value={draft.title}
+            onChange={(e) => updateField("title", e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+          <input
+            value={draft.description}
+            onChange={(e) => updateField("description", e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Tempo por pergunta (s)</label>
+          <input
+            type="number"
+            value={draft.timePerQuestion}
+            onChange={(e) => updateField("timePerQuestion", Number(e.target.value) || 20)}
+            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400"
+          />
+        </div>
+      </div>
+
+      {/* perguntas */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium text-slate-800">Perguntas ({draft.questions.length})</h3>
+          <button
+            onClick={addQuestion}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-700 text-sm font-medium transition"
+          >
+            <PlusCircle size={16} /> Adicionar pergunta
+          </button>
+        </div>
+
+        {draft.questions.length === 0 && (
+          <p className="text-sm text-slate-400 italic">Nenhuma pergunta ainda. Clique em "Adicionar pergunta".</p>
+        )}
+
+        {draft.questions.map((q, qIndex) => (
+          <div key={qIndex} className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-600">Pergunta {qIndex + 1}</span>
+              <button
+                onClick={() => removeQuestion(qIndex)}
+                className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 transition"
+                aria-label={`Remover pergunta ${qIndex + 1}`}
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Texto da pergunta</label>
+              <input
+                value={q.q}
+                onChange={(e) => updateQuestion(qIndex, "q", e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400"
+                placeholder="Digite a pergunta"
+              />
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Imagem da pergunta (URL, opcional)</label>
+                <input
+                  value={q.image || ""}
+                  onChange={(e) => updateQuestion(qIndex, "image", e.target.value || null)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400"
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Descrição da imagem</label>
+                <input
+                  value={q.imageAlt || ""}
+                  onChange={(e) => updateQuestion(qIndex, "imageAlt", e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400"
+                  placeholder="O que a imagem mostra"
+                />
+              </div>
+            </div>
+
+            {/* alternativas */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-medium text-slate-600">
+                  Alternativas (marque a correta)
+                </label>
+                {q.opts.length < 4 && (
+                  <button
+                    onClick={() => addOption(qIndex)}
+                    className="text-xs px-2 py-1 rounded bg-sky-100 hover:bg-sky-200 text-sky-700 font-medium transition"
+                  >
+                    + alternativa
+                  </button>
+                )}
+              </div>
+
+              {q.opts.map((op, optIndex) => (
+                <div key={optIndex} className="flex items-start gap-2 bg-white border border-slate-200 rounded-lg p-2">
+                  <input
+                    type="radio"
+                    name={`correct-${qIndex}`}
+                    checked={q.correct === optIndex}
+                    onChange={() => setCorrect(qIndex, optIndex)}
+                    className="mt-2"
+                    aria-label={`Marcar alternativa ${optIndex + 1} como correta`}
+                  />
+                  <div className="flex-1 grid md:grid-cols-3 gap-2">
+                    <input
+                      value={op.text}
+                      onChange={(e) => updateOption(qIndex, optIndex, "text", e.target.value)}
+                      className="px-2 py-1.5 rounded border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400 md:col-span-1"
+                      placeholder={`Alternativa ${"ABCD"[optIndex]}`}
+                    />
+                    <input
+                      value={op.image || ""}
+                      onChange={(e) => updateOption(qIndex, optIndex, "image", e.target.value || null)}
+                      className="px-2 py-1.5 rounded border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400"
+                      placeholder="Imagem (URL, opcional)"
+                    />
+                    <input
+                      value={op.imageAlt || ""}
+                      onChange={(e) => updateOption(qIndex, optIndex, "imageAlt", e.target.value)}
+                      className="px-2 py-1.5 rounded border border-slate-300 text-black outline-none focus:ring-2 focus:ring-sky-400"
+                      placeholder="Descrição da imagem"
+                    />
+                  </div>
+                  {q.opts.length > 2 && (
+                    <button
+                      onClick={() => removeOption(qIndex, optIndex)}
+                      className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500 transition mt-1"
+                      aria-label={`Remover alternativa ${optIndex + 1}`}
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ─── aba quiz ─────────────────────────────────────────────────
 function TabQuiz({ quizzes, setQuizzes }) {
   const [newQuiz, setNewQuiz] = useState({ title: "", description: "", timePerQuestion: 20 });
-  const [info, setInfo]       = useState(null);
+  const [editorQuiz, setEditorQuiz] = useState(null); // quiz sendo criado/editado
+  const [info, setInfo] = useState(null);
 
   function handleCreate(e) {
     e.preventDefault();
@@ -489,10 +908,48 @@ function TabQuiz({ quizzes, setQuizzes }) {
       description: newQuiz.description.trim(),
       timePerQuestion: Number(newQuiz.timePerQuestion) || 20,
       questions: [],
+      __isNew: true,
     };
-    setQuizzes((prev) => [quiz, ...prev]);
     setNewQuiz({ title: "", description: "", timePerQuestion: 20 });
-    setInfo({ title: "Quiz criado", message: "Quiz criado com sucesso." });
+    // abre direto o editor para adicionar as perguntas
+    setEditorQuiz(quiz);
+  }
+
+  function openEditor(quiz) {
+    setEditorQuiz({ ...quiz, __isNew: false });
+  }
+
+  function handleSaveEditor(draft) {
+    const { __isNew, ...clean } = draft;
+    setQuizzes((prev) => {
+      const exists = prev.some((q) => q.id === clean.id);
+      return exists
+        ? prev.map((q) => (q.id === clean.id ? clean : q))
+        : [clean, ...prev];
+    });
+    setEditorQuiz(null);
+    setInfo({ title: "Quiz salvo", message: "As alterações foram salvas com sucesso." });
+  }
+
+  function handleCancelEditor() {
+    setEditorQuiz(null);
+  }
+
+  function handleRemoveQuiz(id) {
+    if (!window.confirm("Remover este quiz?")) return;
+    setQuizzes((prev) => prev.filter((q) => q.id !== id));
+  }
+
+  if (editorQuiz) {
+    return (
+      <>
+        <QuizEditor quiz={editorQuiz} onSave={handleSaveEditor} onCancel={handleCancelEditor} />
+        <Dialog open={!!info} title={info?.title || ""} onClose={() => setInfo(null)}
+          actions={<button className="px-4 py-2 rounded-lg bg-sky-500 text-white" onClick={() => setInfo(null)}>OK</button>}>
+          <p>{info?.message}</p>
+        </Dialog>
+      </>
+    );
   }
 
   return (
@@ -555,11 +1012,18 @@ function TabQuiz({ quizzes, setQuizzes }) {
                       <td className="py-2 px-3 text-center">{quiz.questions?.length || 0}</td>
                       <td className="py-2 px-3 text-center">{quiz.timePerQuestion || 20}s</td>
                       <td className="py-2 px-3 text-center">
-                        <button onClick={() => setQuizzes((prev) => prev.filter((q) => q.id !== quiz.id))}
-                          className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 transition"
-                          aria-label={`Remover quiz ${quiz.title}`}>
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => openEditor(quiz)}
+                            className="p-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-600 transition"
+                            aria-label={`Editar quiz ${quiz.title}`}>
+                            <Pencil size={16} />
+                          </button>
+                          <button onClick={() => handleRemoveQuiz(quiz.id)}
+                            className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 transition"
+                            aria-label={`Remover quiz ${quiz.title}`}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -584,7 +1048,7 @@ export default function Admin() {
   const [tab, setTab] = useState("dashboard");
   const [quizzes, setQuizzes] = useState(() => {
     const data = store.get("quizzes", []);
-    return Array.isArray(data) ? data : [];
+    return mergeWithDefaultQuizzes(data);
   });
 
   useEffect(() => {
