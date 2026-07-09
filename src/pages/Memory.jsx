@@ -53,7 +53,7 @@ const MEMORY_GAMES = [
   },
 ];
 
-// >>> Parâmetros ajustáveis do bloqueio de ações <
+// >>> Parâmetros ajustáveis do bloqueio de ações 
 const MS_PER_CHAR = 55;
 const MIN_LOCK_MS = 1500;
 const EXTRA_BUFFER_MS = 500;
@@ -179,13 +179,12 @@ export default function Memory() {
   const [running, setRunning] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const [ttsOn, setTtsOn] = useState(true);
   const liveRef = useRef(null);
   const pendingTimeoutRef = useRef(null);
   const cardRefs = useRef([]);
 
   function announce(msg) {
-    if (ttsOn) speak(msg);
+    speak(msg);
     if (liveRef.current) {
       liveRef.current.textContent = "";
       setTimeout(() => (liveRef.current.textContent = msg), 20);
@@ -399,18 +398,6 @@ export default function Memory() {
           </h1>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTtsOn((v) => !v)}
-              className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              aria-pressed={ttsOn}
-              aria-label={
-                ttsOn ? "Desligar narração do jogo" : "Ligar narração do jogo"
-              }
-              title={ttsOn ? "Narração: ligada" : "Narração: desligada"}
-            >
-              {ttsOn ? "🔈" : "🔇"}
-            </button>
             {currentGame && (
               <>
                 <button

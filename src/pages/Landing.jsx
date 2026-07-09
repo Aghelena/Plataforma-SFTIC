@@ -26,24 +26,20 @@ function readFavorites() {
   }
 }
 
-// Executa uma única vez, quando este módulo é carregado pelo
-// navegador — ou seja, ao efetivamente abrir/atualizar a plataforma
-// (refresh, nova aba, primeiro acesso). NÃO roda de novo a cada vez
-// que o usuário navega internamente de volta para "/".
 if (typeof window !== "undefined") {
   clearPlayer();
 }
 
-// --- Cada bloco colorido ---
-function GamePill({ title, color, onClick, available, locked, isFavorite, onToggleFavorite, isNew }) {
+function GamePill({ title, color, textColor, onClick, available, locked, isFavorite, onToggleFavorite, isNew }) {
   return (
     <div className="relative">
       <button
         type="button"
         onClick={onToggleFavorite}
         aria-pressed={isFavorite}
+        aria-disabled={locked ? true : undefined}
         aria-label={isFavorite ? `Remover ${title} dos favoritos` : `Marcar ${title} como favorito`}
-        className="absolute z-10 top-2 left-2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white text-base focus:outline-none focus:ring-2 focus:ring-white/70"
+        className="absolute z-10 top-1 left-1 w-11 h-11 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white text-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
       >
         <span aria-hidden="true">{isFavorite ? "★" : "☆"}</span>
       </button>
@@ -52,7 +48,7 @@ function GamePill({ title, color, onClick, available, locked, isFavorite, onTogg
         type="button"
         onClick={onClick}
         aria-disabled={locked ? true : undefined}
-        className="block w-full rounded-[36px] focus:outline-none focus:ring-2 focus:ring-white/40 transition-transform hover:scale-[1.03]"
+        className="block w-full rounded-[36px] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 transition-transform hover:scale-[1.03]"
         style={{ backgroundColor: color, opacity: available ? 1 : 0.6 }}
         aria-label={
           available
@@ -62,16 +58,19 @@ function GamePill({ title, color, onClick, available, locked, isFavorite, onTogg
       >
         <div className="relative rounded-[36px] overflow-hidden shadow-xl ring-1 ring-white/10 w-full h-28">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_0%_0%,rgba(255,255,255,.25),transparent_60%)]" />
-          <div className="absolute left-5 bottom-2 text-white drop-shadow font-semibold">
+          <div
+            className="absolute left-5 bottom-2 text-xl font-extrabold drop-shadow"
+            style={{ color: textColor }}
+          >
             {title}
           </div>
           {!available && (
-            <div className="absolute top-2 right-3 text-white text-xs font-bold bg-black/30 px-2 py-0.5 rounded-full">
+            <div className="absolute top-2 right-3 text-white text-xs font-bold bg-black/60 px-2 py-0.5 rounded-full">
               Em breve
             </div>
           )}
           {available && isNew && (
-            <div className="absolute top-2 right-3 text-white text-xs font-bold bg-emerald-600 px-2 py-0.5 rounded-full">
+            <div className="absolute top-2 right-3 text-white text-xs font-bold bg-emerald-700 px-2 py-0.5 rounded-full">
               Novo
             </div>
           )}
@@ -81,7 +80,6 @@ function GamePill({ title, color, onClick, available, locked, isFavorite, onTogg
   );
 }
 
-// --- Topbar ---
 function LandingTopbar() {
   return (
     <header className="sticky top-0 z-40 bg-sky-500 bg-opacity-90 backdrop-blur border-b border-white/10">
@@ -101,7 +99,7 @@ function LandingTopbar() {
         <nav className="flex items-center gap-1" aria-label="Navegação principal">
           <Link
             to="/login"
-            className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold"
+            className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Área administrativa"
           >
             Admin
@@ -112,7 +110,6 @@ function LandingTopbar() {
   );
 }
 
-// --- Página principal ---
 export default function Landing() {
   const navigate = useNavigate();
   const [lock, setLock] = useState(false);
@@ -129,9 +126,6 @@ export default function Landing() {
     }
   }
 
-  // Anuncia, bloqueia novas ações pelo tempo estimado de fala e só
-  // então executa "onDone" — evita que a navegação para outra tela
-  // corte a frase no meio (a tela seguinte também fala ao abrir).
   function announceAndLock(msg, onDone) {
     announce(msg);
     setLock(true);
@@ -145,15 +139,15 @@ export default function Landing() {
 
   const ALL_GAMES = useMemo(
     () => [
-      { title: "Quiz", color: "#ef4444", route: "/quiz", categoria: "Linguagem" },
-      { title: "Jogo da Memória", color: "#f59e0b", route: "/memory", categoria: "Memória" },
-      { title: "Forca", color: "#fc03f4", route: "/forca", categoria: "Linguagem" },
-      { title: "Encontre o Intruso", color: "#10b981", route: "/intruso", categoria: "Atenção", novo: true },
-      { title: "Quebra-Cabeça", color: "#732836", route: "/quebracabeca", categoria: "Raciocínio", novo: true },
-      { title: "Candy Crush", color: "#1f0ac2", route: "/candy", categoria: "Atenção" },
-      { title: "Ache a Ordem", color: "#28521c", route: null, categoria: "Memória" },
-      { title: "Mémoria Numérica*", color: "#c2ebb7", route: null, categoria: "Memória" },
-      { title: "Corrida Maluca", color: "#076ab8", route: null, categoria: "Atenção" },
+      { title: "Quiz", color: "#ef4444", textColor: "#FFFFFF", route: "/quiz", categoria: "Linguagem" },
+      { title: "Jogo da Memória", color: "#f59e0b", textColor: "#1E293B", route: "/memory", categoria: "Memória" },
+      { title: "Forca", color: "#fc03f4", textColor: "#FFFFFF", route: "/forca", categoria: "Linguagem" },
+      { title: "Encontre o Intruso", color: "#10b981", textColor: "#1E293B", route: "/intruso", categoria: "Atenção", novo: true },
+      { title: "Quebra-Cabeça", color: "#732836", textColor: "#FFFFFF", route: "/quebracabeca", categoria: "Raciocínio", novo: true },
+      { title: "Candy Crush", color: "#1f0ac2", textColor: "#FFFFFF", route: "/candy", categoria: "Atenção" },
+      { title: "Ache a Ordem", color: "#28521c", textColor: "#FFFFFF", route: null, categoria: "Memória" },
+      { title: "Mémoria Numérica*", color: "#c2ebb7", textColor: "#1E293B", route: null, categoria: "Memória" },
+      { title: "Corrida Maluca", color: "#076ab8", textColor: "#FFFFFF", route: null, categoria: "Atenção" },
     ],
     [],
   );
@@ -163,8 +157,6 @@ export default function Landing() {
     return ["Todos", ...unicas];
   }, [ALL_GAMES]);
 
-  // Filtra por estímulo e depois traz favoritos para o topo,
-  // preservando a ordem original entre eles.
   const games = useMemo(() => {
     const filtrados = filtro === "Todos"
       ? ALL_GAMES
@@ -176,20 +168,21 @@ export default function Landing() {
   }, [ALL_GAMES, filtro, favorites]);
 
   function toggleFavorite(title) {
+    if (lock) return;
     setFavorites((prev) => {
       if (prev.includes(title)) {
         const next = prev.filter((t) => t !== title);
         localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
-        announce(`${title} removido dos favoritos.`);
+        announceAndLock(`${title} removido dos favoritos.`);
         return next;
       }
       if (prev.length >= MAX_FAVORITES) {
-        announce(`Você já tem ${MAX_FAVORITES} jogos favoritos. Remova um para adicionar outro.`);
+        announceAndLock(`Você já tem ${MAX_FAVORITES} jogos favoritos. Remova um para adicionar outro.`);
         return prev;
       }
       const next = [...prev, title];
       localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
-      announce(`${title} adicionado aos favoritos.`);
+      announceAndLock(`${title} adicionado aos favoritos.`);
       return next;
     });
   }
@@ -284,8 +277,8 @@ export default function Landing() {
                   <button
                     type="button"
                     onClick={handleUserLoginClick}
-                    disabled={lock}
-                    className="px-8 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg shadow-lg transition-transform active:scale-95 disabled:opacity-70"
+                    aria-disabled={lock ? true : undefined}
+                    className="px-8 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg shadow-lg transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-700 aria-disabled:opacity-70 aria-disabled:cursor-not-allowed"
                     aria-label="Registrar nome"
                   >
                     Começar a Jogar!
@@ -299,8 +292,8 @@ export default function Landing() {
                   <button
                     type="button"
                     onClick={handleSwitchUser}
-                    disabled={lock}
-                    className="px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold shadow-sm transition-colors disabled:opacity-70"
+                    aria-disabled={lock ? true : undefined}
+                    className="px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-700 aria-disabled:opacity-70 aria-disabled:cursor-not-allowed"
                     aria-label="Sair do usuário atual"
                   >
                     Sair / Trocar Usuário
@@ -310,13 +303,12 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Atalho de voz + filtros */}
           <div className="mt-8 flex flex-col items-center gap-4">
             <button
               type="button"
               onClick={lerListaDeJogos}
-              disabled={lock}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-sky-100 hover:bg-sky-200 text-sky-700 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-60"
+              aria-disabled={lock ? true : undefined}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-sky-100 hover:bg-sky-200 text-sky-700 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 aria-disabled:opacity-60 aria-disabled:cursor-not-allowed"
               aria-label="Ouvir a lista de jogos disponíveis"
             >
               🔊 O que tem aqui?
@@ -333,7 +325,8 @@ export default function Landing() {
                   type="button"
                   onClick={() => handleFilterClick(cat)}
                   aria-pressed={filtro === cat}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition focus:outline-none focus:ring-2 focus:ring-sky-400 ${
+                  aria-disabled={lock ? true : undefined}
+                  className={`px-4 py-2.5 rounded-full text-sm font-semibold border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 aria-disabled:opacity-60 aria-disabled:cursor-not-allowed ${
                     filtro === cat
                       ? "bg-sky-500 text-white border-sky-500"
                       : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
@@ -355,6 +348,7 @@ export default function Landing() {
                 key={g.title}
                 title={g.title}
                 color={g.color}
+                textColor={g.textColor}
                 available={!!g.route}
                 locked={lock}
                 isNew={!!g.novo}
