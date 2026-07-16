@@ -118,7 +118,7 @@ function Stat({ label, value }) {
   );
 }
 
-function Key({ letter, pressed, correct, gameOver, locked, onClick }) {
+function Key({ letter, pressed, correct, gameOver, locked, onClick, onFocusAnnounce }) {
   // "disabled" nativo apenas quando o jogo termina de vez (não precisa
   // mais de interação). Enquanto o jogo está rodando, usamos
   // aria-disabled para letra já tentada / bloqueio temporário, para
@@ -146,6 +146,7 @@ function Key({ letter, pressed, correct, gameOver, locked, onClick }) {
       type="button"
       onClick={handleActivate}
       onKeyDown={handleKey}
+      onFocus={() => onFocusAnnounce(letter, pressed, correct, gameOver, blocked)}
       disabled={gameOver}
       aria-disabled={!gameOver && blocked ? true : undefined}
       aria-pressed={pressed}
@@ -197,6 +198,9 @@ export default function Forca() {
     }, estimateSpeechDuration(msg));
   }
 
+  const COMANDOS_TECLADO =
+    "Digite a letra direto no teclado do computador para tentar, ou use Tab para navegar até a letra desejada no teclado da tela e pressione Enter.";
+
   const normalizedWord = useMemo(() => strip(word), [word]);
 
   const lettersInWord = useMemo(() => {
@@ -226,7 +230,7 @@ export default function Forca() {
       `Você acertou ${revealedLetters.length} até agora. ` +
       `Erros: ${mistakes} de ${MAX_MISTAKES}. ` +
       `Dicas disponíveis: ${hintsLeft}. ` +
-      `Pressione uma letra do teclado para tentar.`
+      `${COMANDOS_TECLADO}`
     );
   }
 
@@ -289,9 +293,9 @@ export default function Forca() {
   const totalLetters = lettersInWord.size;
   const hintsLeft     = MAX_HINTS - hintsUsed;
 
-  // Anuncia início
+  // Anuncia início, já explicando os comandos de teclado.
   useEffect(() => {
-    announceAndLock(`Jogo da Forca iniciado. A palavra tem ${lettersInWord.size} letras. Pressione uma letra do teclado para tentar.`);
+    announceAndLock(`Jogo da Forca iniciado. A palavra tem ${lettersInWord.size} letras. ${COMANDOS_TECLADO}`);
     // eslint-disable-next-line
   }, []);
 
@@ -332,6 +336,23 @@ export default function Forca() {
     announceAndLock(`Dica: a palavra contém a letra ${letter}. Restam ${hintsLeft - 1} dicas.`);
   }
 
+  // Anuncia o foco de uma letra do teclado virtual.
+  function announceKeyFocus(letter, pressed, correct, gameOver, blocked) {
+    if (gameOver) {
+      announce(`Letra ${letter}. Jogo encerrado.`);
+      return;
+    }
+    if (pressed) {
+      announce(`Letra ${letter}, já tentada, ${correct ? "correta" : "incorreta"}.`);
+      return;
+    }
+    if (blocked) {
+      announce(`Letra ${letter}. Aguarde a fala terminar.`);
+      return;
+    }
+    announce(`Letra ${letter}. Pressione Enter para tentar.`);
+  }
+
   // Teclado físico
   useEffect(() => {
     const onKey = (e) => {
@@ -361,7 +382,7 @@ export default function Forca() {
     setRunning(true);
     setHintsUsed(0);
     setLock(false);
-    setTimeout(() => announceAndLock("Novo jogo iniciado. Boa sorte!"), 100);
+    setTimeout(() => announceAndLock(`Novo jogo iniciado. Boa sorte! ${COMANDOS_TECLADO}`), 100);
   };
 
   const formatTime = (total) => {
@@ -379,6 +400,7 @@ export default function Forca() {
           <button
             type="button"
             onClick={goBack}
+            tabIndex={-1}
             className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Voltar"
           >
@@ -389,6 +411,7 @@ export default function Forca() {
             <button
               type="button"
               onClick={readScreen}
+              onFocus={() => announce("Botão: Ler tela. Pressione Enter para ouvir a situação atual do jogo.")}
               disabled={lock || gameOver}
               className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
               aria-label="Ler situação do jogo da forca"
@@ -399,6 +422,7 @@ export default function Forca() {
             <button
               type="button"
               onClick={restart}
+              onFocus={() => announce("Botão: Reiniciar. Pressione Enter para começar um novo jogo.")}
               disabled={lock}
               className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
               aria-label="Reiniciar jogo da forca"
@@ -439,6 +463,7 @@ export default function Forca() {
           <button
             type="button"
             onClick={useHint}
+            onFocus={() => announce(`Botão: Dica. ${hintsLeft} dica${hintsLeft !== 1 ? "s" : ""} restante${hintsLeft !== 1 ? "s" : ""}. Pressione Enter para revelar uma letra.`)}
             disabled={lock || gameOver || hintsLeft <= 0}
             className="px-4 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 text-sm font-semibold border border-amber-200 transition disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             aria-label={`Usar dica. ${hintsLeft} dica${hintsLeft !== 1 ? "s" : ""} restante${hintsLeft !== 1 ? "s" : ""}`}
@@ -447,8 +472,15 @@ export default function Forca() {
           </button>
         </div>
 
-        <h2 className="sr-only">Teclado de letras</h2>
-        <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+        <h2 id="teclado-heading" className="sr-only">Teclado de letras</h2>
+        <p id="teclado-instrucoes" className="sr-only">
+          {COMANDOS_TECLADO}
+        </p>
+        <section
+          className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4"
+          aria-labelledby="teclado-heading"
+          aria-describedby="teclado-instrucoes"
+        >
           <div className="grid grid-cols-8 sm:grid-cols-12 gap-2 select-none">
             {ALPHABET.map((L) => (
               <Key
@@ -459,6 +491,7 @@ export default function Forca() {
                 gameOver={gameOver}
                 locked={lock}
                 onClick={() => guessLetter(L)}
+                onFocusAnnounce={announceKeyFocus}
               />
             ))}
           </div>

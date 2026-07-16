@@ -1,6 +1,6 @@
 import { store } from "../lib/store.js";
 import { useEffect, useRef, useState } from "react";
-import { Volume2, VolumeX, Clock, CheckCircle2 } from "lucide-react";
+import { Clock, CheckCircle2 } from "lucide-react";
 import { speak } from "../lib/speech.js";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logosfitc.png";
@@ -13,7 +13,7 @@ const DEFAULT_QUIZZES = [
     id: "quiz-curiosidades-animais",
     title: "Curiosidades sobre Animais",
     description: "Um quiz divertido pra testar o que você sabe sobre bichos.",
-    timePerQuestion: 20,
+    timePerQuestion: 200,
     questions: [
       {
         q: "Qual desses animais consegue dormir com um olho aberto?",
@@ -53,7 +53,7 @@ const DEFAULT_QUIZZES = [
     id: "quiz-geografia-mundo",
     title: "Volta ao Mundo",
     description: "Teste seus conhecimentos de geografia com perguntas rápidas.",
-    timePerQuestion: 20,
+    timePerQuestion: 200,
     questions: [
       {
         q: "Qual é o maior oceano do planeta?",
@@ -93,7 +93,7 @@ const DEFAULT_QUIZZES = [
     id: "quiz-ciencia-curiosa",
     title: "Ciência Curiosa",
     description: "Pequenas curiosidades científicas para exercitar a mente.",
-    timePerQuestion: 25,
+    timePerQuestion: 200,
     questions: [
       {
         q: "Qual é o estado físico da água a 0°C, no nível do mar?",
@@ -174,19 +174,28 @@ function readQuizzes() {
     if (Array.isArray(fromStore)) saved = fromStore;
   }
 
-  // Os quizzes padrão sempre aparecem na lista, junto com os criados
-  // no painel admin (não são substituídos nem somem).
   const savedIds = new Set(saved.map((q) => q.id));
+
+  // Para os 3 quizzes padrão, o tempo por pergunta sempre vem do
+  // código (DEFAULT_QUIZZES), mesmo que exista uma cópia salva
+  // antiga no localStorage/store com um valor desatualizado. Isso
+  // não afeta quizzes criados/editados pelo Admin (ids diferentes).
+  const defaultsById = new Map(DEFAULT_QUIZZES.map((d) => [d.id, d]));
+  const savedWithSyncedTime = saved.map((s) => {
+    const def = defaultsById.get(s.id);
+    return def ? { ...s, timePerQuestion: def.timePerQuestion } : s;
+  });
+
   const merged = [
     ...DEFAULT_QUIZZES.filter((d) => !savedIds.has(d.id)),
-    ...saved,
+    ...savedWithSyncedTime,
   ];
 
   return merged.map(normalizeQuiz);
 }
 
 /* -------- Dialog reutilizável -------- */
-function Dialog({ open, title, children, actions, onClose, titleId }) {
+function Dialog({ open, title, children, actions, onClose, titleId, onAnnounce }) {
   const closeBtnRef = useRef(null);
   const lastFocusedRef = useRef(null);
 
@@ -225,6 +234,7 @@ function Dialog({ open, title, children, actions, onClose, titleId }) {
           </h3>
           <button
             ref={closeBtnRef}
+            onFocus={() => onAnnounce?.("Botão: Fechar. Pressione Enter para fechar esta janela.")}
             className="text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded"
             onClick={onClose}
             aria-label="Fechar"
@@ -246,7 +256,6 @@ export default function Quiz() {
   const [idx, setIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [remaining, setRemaining] = useState(0);
-  const [reading, setReading] = useState(false);
 
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
@@ -258,9 +267,26 @@ export default function Quiz() {
   const [timeAnnouncement, setTimeAnnouncement] = useState("");
   const announcedMarksRef = useRef(new Set());
 
+  const liveRef = useRef(null);
+  const questionHeadingRef = useRef(null);
+
   const navigate = useNavigate();
   const goBack = () =>
     (window.history.length > 1 ? navigate(-1) : navigate("/"));
+
+  function announce(msg) {
+    speak(msg);
+    if (liveRef.current) {
+      liveRef.current.textContent = "";
+      setTimeout(() => { liveRef.current.textContent = msg; }, 20);
+    }
+  }
+
+  const COMANDOS_LISTA =
+    "Use Tab para navegar entre os quizzes disponíveis. Cada quiz tem dois botões: Iniciar e Prévia. Pressione Enter para ativar o botão selecionado.";
+
+  const COMANDOS_QUESTAO =
+    "Use Tab para navegar entre as alternativas de resposta, e Enter ou Espaço para escolher uma.";
 
   /* Sincroniza quizzes */
   useEffect(() => {
@@ -299,11 +325,14 @@ export default function Quiz() {
       });
     }, 1000);
 
-    if (reading) {
-      const q = current.questions[idx];
-      const optsText = q.opts.map((o) => o.text).join(", ");
-      speak(`Questão ${idx + 1}. ${q.q}. Opções: ${optsText}`);
-    }
+    // Anuncia a pergunta automaticamente ao carregar. Na primeira
+    // pergunta do quiz, inclui a explicação dos comandos de teclado.
+    const q = current.questions[idx];
+    const optsText = q.opts.map((o, i) => `${"ABCD"[i]}) ${o.text}`).join(", ");
+    const prefixo = idx === 0 ? `${COMANDOS_QUESTAO} ` : "";
+    announce(`${prefixo}Questão ${idx + 1} de ${current.questions.length}. ${q.q} Alternativas: ${optsText}.`);
+
+    questionHeadingRef.current?.focus();
 
     return () => clearInterval(t);
     // eslint-disable-next-line
@@ -321,6 +350,13 @@ export default function Quiz() {
     setCurrent(normalizeQuiz(qz));
     setIdx(0);
     setScore(0);
+  }
+
+  function comoJogar() {
+    if (!current) return;
+    const q = current.questions[idx];
+    const optsText = q.opts.map((o, i) => `${"ABCD"[i]}) ${o.text}`).join(", ");
+    announce(`${COMANDOS_QUESTAO} Pergunta atual: ${q.q} Alternativas: ${optsText}.`);
   }
 
   function handleTimeout() {
@@ -370,14 +406,15 @@ export default function Quiz() {
     }
   }
 
-  const history = store.get("scores", []).slice(-20).reverse();
-
   return (
     <div className="min-h-screen bg-slate-50">
+      <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
+
       <header className="bg-sky-500 text-black sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <button
             onClick={goBack}
+            tabIndex={-1}
             className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Voltar"
           >
@@ -388,19 +425,35 @@ export default function Quiz() {
             <h1 className="font-bold text-black">Quiz Acessível</h1>
           </div>
 
-          <div aria-hidden="true" className="w-[88px]" />
+          <div className="flex items-center gap-2">
+            {current && (
+              <button
+                onClick={comoJogar}
+                onFocus={() => announce("Botão: Como jogar. Pressione Enter para repetir a pergunta atual e os comandos.")}
+                className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                aria-label="Ouvir como jogar e repetir a pergunta atual"
+                title="Como jogar"
+              >
+                🔊
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         {/* ---------- Lista de quizzes ---------- */}
         {!current && (
-          <section aria-labelledby="quizzes-heading">
+          <section aria-labelledby="quizzes-heading" aria-describedby="quizzes-instrucoes">
             <div className="flex items-center justify-between mb-4">
               <h2 id="quizzes-heading" className="text-xl font-bold text-slate-800">
                 Quizzes disponíveis
               </h2>
             </div>
+
+            <p id="quizzes-instrucoes" className="sr-only">
+              {COMANDOS_LISTA}
+            </p>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {quizzes.map((q) => (
@@ -425,6 +478,7 @@ export default function Quiz() {
                     <button
                       className="flex-1 px-3 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
                       onClick={() => start(q.id)}
+                      onFocus={() => announce(`Botão: Iniciar quiz ${q.title}. Pressione Enter para começar.`)}
                       aria-label={`Iniciar quiz ${q.title}`}
                     >
                       Iniciar
@@ -440,6 +494,7 @@ export default function Quiz() {
                           })),
                         })
                       }
+                      onFocus={() => announce(`Botão: Ver prévia do quiz ${q.title}. Pressione Enter para ver as perguntas antes de começar.`)}
                       aria-label={`Ver prévia do quiz ${q.title}`}
                     >
                       Prévia
@@ -462,9 +517,15 @@ export default function Quiz() {
           <section
             className="bg-white border border-slate-200 rounded-xl shadow-md p-6"
             aria-labelledby="current-question-heading"
+            aria-describedby="questao-instrucoes"
           >
             <div className="flex items-center justify-between">
-              <h2 id="current-question-heading" className="font-semibold text-slate-800">
+              <h2
+                id="current-question-heading"
+                ref={questionHeadingRef}
+                tabIndex={-1}
+                className="font-semibold text-slate-800 focus:outline-none"
+              >
                 Questão {idx + 1} de {current.questions.length}
               </h2>
               <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -472,6 +533,10 @@ export default function Quiz() {
                 <span aria-hidden="true">Tempo restante: {remaining}s</span>
               </div>
             </div>
+
+            <p id="questao-instrucoes" className="sr-only">
+              {COMANDOS_QUESTAO}
+            </p>
 
             <div className="sr-only" role="status" aria-live="assertive">
               {timeAnnouncement}
@@ -495,6 +560,7 @@ export default function Quiz() {
                   key={i}
                   className="px-4 py-3 text-left rounded-lg bg-slate-100 hover:bg-sky-100 border border-slate-200 text-slate-800 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-60"
                   onClick={() => answer(i)}
+                  onFocus={() => announce(`Alternativa ${"ABCD"[i]}: ${op.text}. Pressione Enter para escolher.`)}
                   disabled={locked}
                   aria-label={`Alternativa ${"ABCD"[i]}: ${op.text}`}
                 >
@@ -523,10 +589,12 @@ export default function Quiz() {
         title={preview?.title || ""}
         titleId="preview-dialog-title"
         onClose={() => setPreview(null)}
+        onAnnounce={announce}
         actions={
           <button
             className="px-4 py-2 rounded-lg bg-sky-500 text-white hover:bg-sky-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
             onClick={() => setPreview(null)}
+            onFocus={() => announce("Botão: Fechar prévia. Pressione Enter para voltar à lista de quizzes.")}
           >
             Fechar
           </button>
@@ -552,10 +620,12 @@ export default function Quiz() {
         title={result?.title || "Resultado"}
         titleId="result-dialog-title"
         onClose={() => setResult(null)}
+        onAnnounce={announce}
         actions={
           <button
             className="px-4 py-2 rounded-lg bg-sky-500 text-white hover:bg-sky-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
             onClick={() => setResult(null)}
+            onFocus={() => announce("Botão: OK. Pressione Enter para fechar o resultado.")}
           >
             OK
           </button>

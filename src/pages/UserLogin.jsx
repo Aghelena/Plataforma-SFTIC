@@ -1,6 +1,6 @@
 // src/pages/UserLogin.jsx
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, LogIn, Loader2 } from "lucide-react";
 import { setPlayer } from "../lib/player";
@@ -14,6 +14,31 @@ function UserLogin() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const liveRef = useRef(null);
+  const inputRef = useRef(null);
+
+  function announce(msg) {
+    speak(msg);
+    if (liveRef.current) {
+      liveRef.current.textContent = "";
+      setTimeout(() => { liveRef.current.textContent = msg; }, 20);
+    }
+  }
+
+  // Anuncia as instruções assim que a tela carrega e leva o foco
+  // direto pro campo de nome, já que essa é a única ação possível
+  // aqui.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      announce(
+        "Tela de entrada. Digite o nome cadastrado pela sua terapeuta e pressione Espaço, ou navegue com Tab até o botão Entrar."
+      );
+      inputRef.current?.focus();
+    }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line
+  }, []);
+
   const goBack = () => {
     window.history.length > 1 ? nav(-1) : nav("/");
   };
@@ -25,11 +50,12 @@ function UserLogin() {
     if (!name.trim()) {
       const msg = "Digite seu nome.";
       setErr(msg);
-      speak(msg);
+      announce(msg);
       return;
     }
 
     setLoading(true);
+    announce("Entrando, aguarde um momento.");
 
     try {
       const data = await apiFetch("/api/users/login", {
@@ -38,6 +64,7 @@ function UserLogin() {
       });
 
       setPlayer(data);
+      announce(`Bem-vindo, ${data?.name || name.trim()}.`);
 
       const nextGame = localStorage.getItem("nextGameRoute") || "/";
       nav(nextGame);
@@ -58,7 +85,7 @@ function UserLogin() {
       }
 
       setErr(friendlyMessage);
-      speak(friendlyMessage);
+      announce(friendlyMessage);
       console.error("Erro no login:", error);
     } finally {
       setLoading(false);
@@ -67,10 +94,13 @@ function UserLogin() {
 
   return (
     <>
+      <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
+
       <header className="bg-white shadow-sm border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <button
             onClick={goBack}
+            tabIndex={-1}
             className="px-3 py-1.5 rounded-md text-black hover:bg-black/5 font-semibold"
             aria-label="Voltar"
           >
@@ -111,10 +141,12 @@ function UserLogin() {
                   aria-hidden="true"
                 />
                 <input
+                  ref={inputRef}
                   id="user-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onFocus={() => announce("Campo: seu nome. Digite o nome cadastrado pela sua terapeuta.")}
                   className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-gray-900 focus:ring-2 focus:ring-sky-400 focus:outline-none"
                   placeholder="Digite seu nome"
                   autoComplete="off"
@@ -137,6 +169,7 @@ function UserLogin() {
             <button
               type="submit"
               disabled={loading}
+              onFocus={() => announce("Botão: Entrar. Pressione Espaço para confirmar seu nome.")}
               className="w-full flex justify-center items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg py-2 font-semibold transition focus:ring-2 focus:ring-sky-300 disabled:opacity-60"
               aria-busy={loading}
             >
