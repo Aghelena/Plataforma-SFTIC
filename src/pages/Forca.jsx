@@ -178,6 +178,7 @@ export default function Forca() {
   const liveRef = useRef(null);
   const resultRef = useRef(null);
   const lockTimeoutRef = useRef(null);
+  const appRef = useRef(null);
 
   function announce(msg) {
     speak(msg);
@@ -200,6 +201,37 @@ export default function Forca() {
 
   const COMANDOS_TECLADO =
     "Digite a letra direto no teclado do computador para tentar, ou use Tab para navegar até a letra desejada no teclado da tela e pressione Enter.";
+
+  // Armadilha de foco: impede que o Tab "vaze" da página para a
+  // interface do navegador (barra de endereço, etc.). Ao chegar no
+  // último elemento focável e apertar Tab, o foco volta pro
+  // primeiro; ao apertar Shift+Tab no primeiro, volta pro último.
+  useEffect(() => {
+    function trapTab(e) {
+      if (e.key !== "Tab") return;
+      const container = appRef.current;
+      if (!container) return;
+
+      const focusable = Array.from(
+        container.querySelectorAll('button:not([disabled])')
+      ).filter((el) => el.offsetParent !== null);
+
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", trapTab);
+    return () => document.removeEventListener("keydown", trapTab);
+  }, []);
 
   const normalizedWord = useMemo(() => strip(word), [word]);
 
@@ -392,7 +424,7 @@ export default function Forca() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" ref={appRef}>
       <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
 
       <header className="bg-sky-500 text-white sticky top-0 z-30">
@@ -400,9 +432,9 @@ export default function Forca() {
           <button
             type="button"
             onClick={goBack}
-            tabIndex={-1}
+            onFocus={() => announce("Botão: Voltar. Atenção, pressione Enter para sair do jogo da forca e voltar à tela anterior.")}
             className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            aria-label="Voltar"
+            aria-label="Voltar. Atenção, isso sai do jogo da forca"
           >
             ← Voltar
           </button>

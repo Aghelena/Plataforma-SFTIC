@@ -53,7 +53,7 @@ const MEMORY_GAMES = [
   },
 ];
 
-// >>> Parâmetros ajustáveis do bloqueio de ações 
+// >>> Parâmetros ajustáveis do bloqueio de ações
 const MS_PER_CHAR = 55;
 const MIN_LOCK_MS = 1500;
 const EXTRA_BUFFER_MS = 500;
@@ -130,12 +130,20 @@ const Card = React.forwardRef(function Card(
   );
 });
 
-function GameSelector({ onSelect }) {
+function GameSelector({ onSelect, onAnnounce, headingRef }) {
   return (
-    <section aria-labelledby="games-heading">
-      <h2 id="games-heading" className="text-xl font-bold text-gray-800 mb-4">
+    <section aria-labelledby="games-heading" aria-describedby="selector-instrucoes">
+      <h2
+        id="games-heading"
+        ref={headingRef}
+        tabIndex={-1}
+        className="text-xl font-bold text-gray-800 mb-4 focus:outline-none"
+      >
         Escolha um jogo da memória
       </h2>
+      <p id="selector-instrucoes" className="sr-only">
+        Use Tab para navegar entre os jogos disponíveis, e Enter para escolher um.
+      </p>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {MEMORY_GAMES.map((game) => (
           <div
@@ -151,6 +159,7 @@ function GameSelector({ onSelect }) {
             <button
               type="button"
               onClick={() => onSelect(game)}
+              onFocus={() => onAnnounce(`Jogo: ${game.title}. ${game.description} Pressione Enter para começar.`)}
               className="mt-3 px-3 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
               aria-label={`Jogar ${game.title}`}
             >
@@ -182,6 +191,8 @@ export default function Memory() {
   const liveRef = useRef(null);
   const pendingTimeoutRef = useRef(null);
   const cardRefs = useRef([]);
+  const selectorHeadingRef = useRef(null);
+  const resultRef = useRef(null);
 
   function announce(msg) {
     speak(msg);
@@ -190,6 +201,19 @@ export default function Memory() {
       setTimeout(() => (liveRef.current.textContent = msg), 20);
     }
   }
+
+  const COMANDOS_TABULEIRO =
+    "Use as setas do teclado para navegar entre as cartas, e Enter ou Espaço para virar a carta selecionada.";
+
+  // Anúncio de boas-vindas ao carregar a tela de seleção, uma única
+  // vez, explicando o comando de teclado desta tela.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      announce("Escolha um jogo da memória. Use Tab para navegar entre os jogos disponíveis, e Enter para escolher um.");
+    }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line
+  }, []);
 
   function startGame(game) {
     if (pendingTimeoutRef.current) {
@@ -206,7 +230,11 @@ export default function Memory() {
     setRunning(true);
     setActiveIndex(0);
     cardRefs.current = [];
-    announce(`Jogo ${game.title} iniciado. Boa sorte!`);
+    announce(`Jogo ${game.title} iniciado. Boa sorte! ${COMANDOS_TABULEIRO}`);
+
+    // Leva o foco para a primeira carta do tabuleiro — sem isso, o
+    // foco ficava perdido no <body> ao trocar de tela.
+    setTimeout(() => cardRefs.current[0]?.focus(), 50);
   }
 
   function backToSelection() {
@@ -216,7 +244,10 @@ export default function Memory() {
     }
     setRunning(false);
     setCurrentGame(null);
-    announce("Voltando para a lista de jogos.");
+    announce("Voltando para a lista de jogos. Use Tab para navegar entre os jogos disponíveis, e Enter para escolher um.");
+
+    // Leva o foco de volta para o título da lista de jogos.
+    setTimeout(() => selectorHeadingRef.current?.focus(), 50);
   }
 
   function readScreen() {
@@ -230,7 +261,7 @@ export default function Memory() {
       `O jogo tem ${totalPairs} pares no total.`,
       `Você já encontrou ${matchedPairs} pares.`,
       `Você fez ${moves} jogadas até agora.`,
-      "Use as setas do teclado para navegar entre as cartas, e Enter ou Espaço para virar.",
+      COMANDOS_TABULEIRO,
       "Se as duas cartas forem iguais, formam um par. Se forem diferentes, tente novamente.",
     ].join(" ");
 
@@ -249,7 +280,7 @@ export default function Memory() {
     return () => clearInterval(id);
   }, [running]);
 
-  // salvar recorde por jogo ao concluir
+  // salvar recorde por jogo ao concluir + levar o foco pro resultado
   useEffect(() => {
     if (allMatched && currentGame) {
       setRunning(false);
@@ -263,6 +294,8 @@ export default function Memory() {
         localStorage.setItem(key, JSON.stringify(newBest));
       } catch {}
       announce(`Parabéns! Você concluiu o jogo com ${moves} jogadas.`);
+      const t = setTimeout(() => resultRef.current?.focus(), 50);
+      return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allMatched]);
@@ -330,8 +363,10 @@ export default function Memory() {
     }, lockDuration);
   };
 
+  // Agora protegido contra ser chamado enquanto uma fala/bloqueio
+  // ainda está em andamento — antes não tinha nenhuma checagem.
   const restart = () => {
-    if (!currentGame) return;
+    if (lock || !currentGame) return;
     startGame(currentGame);
   };
 
@@ -370,6 +405,18 @@ export default function Memory() {
     cardRefs.current[next]?.focus();
   }
 
+  // Anuncia o estado da carta ao receber foco (clique, Tab ou setas).
+  function handleCardFocus(card, index, interactive) {
+    setActiveIndex(index);
+    if (card.matched) {
+      announce(`Carta ${card.label}, já encontrada.`);
+    } else if (!interactive) {
+      announce("Carta virada para baixo. Aguarde a fala terminar.");
+    } else {
+      announce("Carta virada para baixo. Pressione Enter para virar.");
+    }
+  }
+
   const gridColsClass =
     currentGame?.cols === 4 ? "grid grid-cols-4 gap-3 sm:gap-4" : "grid grid-cols-4 gap-3 sm:gap-4";
 
@@ -387,6 +434,9 @@ export default function Memory() {
           <button
             type="button"
             onClick={currentGame ? backToSelection : goBack}
+            onFocus={() => announce(currentGame
+              ? "Botão: Trocar jogo. Isso não sai da página, só volta para a lista de jogos da memória. Pressione Enter para confirmar."
+              : "Botão: Voltar. Isso vai sair do Jogo da Memória e voltar para a tela inicial da plataforma. Pressione Enter para confirmar.")}
             className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label={currentGame ? "Voltar para a lista de jogos" : "Voltar"}
           >
@@ -403,8 +453,9 @@ export default function Memory() {
                 <button
                   type="button"
                   onClick={readScreen}
-                  disabled={lock}
-                  className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  onFocus={() => announce("Botão: Ler tela. Pressione Enter para ouvir a situação atual do jogo.")}
+                  aria-disabled={lock ? true : undefined}
+                  className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white aria-disabled:opacity-60 aria-disabled:cursor-not-allowed"
                   aria-label="Ler instruções do jogo da memória"
                   title="Ler tela"
                 >
@@ -413,8 +464,9 @@ export default function Memory() {
                 <button
                   type="button"
                   onClick={restart}
-                  disabled={lock}
-                  className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  onFocus={() => announce("Botão: Reiniciar. Pressione Enter para começar este jogo de novo.")}
+                  aria-disabled={lock ? true : undefined}
+                  className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white aria-disabled:opacity-60 aria-disabled:cursor-not-allowed"
                 >
                   Reiniciar
                 </button>
@@ -426,7 +478,7 @@ export default function Memory() {
 
       <main id="conteudo" className="max-w-5xl mx-auto px-4 py-6">
         {!currentGame ? (
-          <GameSelector onSelect={startGame} />
+          <GameSelector onSelect={startGame} onAnnounce={announce} headingRef={selectorHeadingRef} />
         ) : (
           <>
             <div
@@ -446,8 +498,7 @@ export default function Memory() {
             </div>
 
             <p className="sr-only" id="tabuleiro-instrucoes">
-              Use as setas do teclado para navegar entre as cartas. Pressione
-              Enter ou Espaço para virar a carta selecionada.
+              {COMANDOS_TABULEIRO}
             </p>
 
             <section
@@ -461,6 +512,7 @@ export default function Memory() {
                   first?.id === card.id ||
                   second?.id === card.id ||
                   card.matched;
+                const interactive = !card.matched && !lock;
                 return (
                   <Card
                     key={card.id}
@@ -470,7 +522,7 @@ export default function Memory() {
                     locked={lock}
                     tabIndex={activeIndex === index ? 0 : -1}
                     onFlip={flip}
-                    onFocus={() => setActiveIndex(index)}
+                    onFocus={() => handleCardFocus(card, index, interactive)}
                     onKeyDown={(e) => handleGridKeyDown(e, index)}
                   />
                 );
@@ -479,8 +531,10 @@ export default function Memory() {
 
             {allMatched && (
               <div
+                ref={resultRef}
+                tabIndex={-1}
                 role="status"
-                className="mt-6 p-4 rounded-xl bg-emerald-100 text-emerald-900 font-semibold text-center"
+                className="mt-6 p-4 rounded-xl bg-emerald-100 text-emerald-900 font-semibold text-center focus:outline-none"
               >
                 Parabéns! Você concluiu o jogo com {moves} jogadas.
               </div>

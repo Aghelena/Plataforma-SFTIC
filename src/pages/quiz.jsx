@@ -414,9 +414,13 @@ export default function Quiz() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <button
             onClick={goBack}
-            tabIndex={-1}
+            onFocus={() => announce(
+              current
+                ? "Botão: Voltar. Isso vai sair do Quiz e voltar para a tela inicial da plataforma. Pressione Enter para confirmar."
+                : "Botão: Voltar. Isso vai sair da lista de quizzes e voltar para a tela inicial da plataforma. Pressione Enter para confirmar."
+            )}
             className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            aria-label="Voltar"
+            aria-label="Voltar para a tela inicial"
           >
             ← Voltar
           </button>
@@ -558,10 +562,10 @@ export default function Quiz() {
               {current.questions[idx].opts.map((op, i) => (
                 <button
                   key={i}
-                  className="px-4 py-3 text-left rounded-lg bg-slate-100 hover:bg-sky-100 border border-slate-200 text-slate-800 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-60"
+                  className="px-4 py-3 text-left rounded-lg bg-slate-100 hover:bg-sky-100 border border-slate-200 text-slate-800 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 aria-disabled:opacity-60"
                   onClick={() => answer(i)}
                   onFocus={() => announce(`Alternativa ${"ABCD"[i]}: ${op.text}. Pressione Enter para escolher.`)}
-                  disabled={locked}
+                  aria-disabled={locked ? true : undefined}
                   aria-label={`Alternativa ${"ABCD"[i]}: ${op.text}`}
                 >
                   <span aria-hidden="true">{`${"ABCD"[i]}) ${op.text}`}</span>
