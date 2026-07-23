@@ -5,6 +5,7 @@ import {
   getUserSummary,
   postGameSession,
 } from "../controllers/analyticsController.js";
+import { verifyToken, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ const router = Router();
  *       200:
  *         description: Dados consolidados do dashboard
  */
-router.get("/admin-summary", getDashboardSummary);
+router.get("/admin-summary", verifyToken, requireAdmin, getDashboardSummary);
 
 /**
  * @openapi
@@ -42,7 +43,7 @@ router.get("/admin-summary", getDashboardSummary);
  *       404:
  *         description: Usuário não encontrado
  */
-router.get("/users/:userId/summary", getUserSummary);
+router.get("/users/:userId/summary", verifyToken, requireAdmin, getUserSummary);
 
 /**
  * @openapi

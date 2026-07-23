@@ -1,6 +1,7 @@
 // server/routes/userRoutes.js
 import { Router } from "express";
 import { pool } from "../db.js";
+import { verifyToken, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -77,7 +78,7 @@ router.post("/login", async (req, res) => {
  *       200:
  *         description: Lista de usuários
  */
-router.get("/", async (_req, res) => {
+router.get("/", verifyToken, requireAdmin, async (_req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, name, email, created_at FROM users ORDER BY id DESC`
@@ -116,7 +117,7 @@ router.get("/", async (_req, res) => {
  *       409:
  *         description: Nome ou email já existe
  */
-router.post("/", async (req, res) => {
+router.post("/", verifyToken, requireAdmin, async (req, res) => {
   try {
     const name  = (req.body?.name  || "").trim();
     const email = (req.body?.email || "").trim() || null;
@@ -161,7 +162,7 @@ router.post("/", async (req, res) => {
  *       400:
  *         description: ID inválido
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", verifyToken, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ error: "ID inválido." });
