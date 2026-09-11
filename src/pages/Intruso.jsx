@@ -306,20 +306,22 @@ export default function Intruso() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
 
-      <header className="p-4 bg-white border-b flex justify-between items-center shadow-sm">
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="px-4 py-2 rounded-xl bg-sky-500 font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-          aria-label="Sair do jogo Encontre o Intruso"
-        >
-          ← Sair
-        </button>
+      <header className="sticky top-0 z-40 bg-sky-500/30 backdrop-blur-md border-b border-white/20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="px-4 py-2 rounded-xl bg-sky-500 font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            aria-label="Sair do jogo Encontre o Intruso"
+          >
+            ← Sair
+          </button>
 
-        <h2 className="text-xl font-black">Encontre o Intruso</h2>
+          <h2 className="text-xl font-black">Encontre o Intruso</h2>
 
-        <div className="bg-sky-100 px-4 py-1 rounded-full font-bold text-sky-700">
-          {fase + 1} / {questoesSorteadas.length}
+          <div className="bg-sky-100 px-4 py-1 rounded-full font-bold text-sky-700">
+            {fase + 1} / {questoesSorteadas.length}
+          </div>
         </div>
       </header>
 

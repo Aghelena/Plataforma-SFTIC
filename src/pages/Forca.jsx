@@ -427,8 +427,8 @@ export default function Forca() {
     <div className="min-h-screen bg-gray-50" ref={appRef}>
       <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
 
-      <header className="bg-sky-500 text-white sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-sky-500/30 backdrop-blur-md border-b border-white/20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <button
             type="button"
             onClick={goBack}
@@ -449,9 +449,8 @@ export default function Forca() {
               aria-label="Ler situação do jogo da forca"
               title="Ler tela"
             >
-              🔊
             </button>
-            <button
+            {/* <button
               type="button"
               onClick={restart}
               onFocus={() => announce("Botão: Reiniciar. Pressione Enter para começar um novo jogo.")}
@@ -460,7 +459,7 @@ export default function Forca() {
               aria-label="Reiniciar jogo da forca"
             >
               Reiniciar
-            </button>
+            </button> */}
           </div>
         </div>
       </header>

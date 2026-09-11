@@ -429,8 +429,8 @@ export default function Memory() {
         ref={liveRef}
       />
 
-      <header className="bg-sky-500 text-white sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-sky-500/30 backdrop-blur-md border-b border-white/20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <button
             type="button"
             onClick={currentGame ? backToSelection : goBack}

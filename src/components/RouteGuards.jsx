@@ -14,6 +14,6 @@ export function AdminRoute({ children }) {
   // ajuste aqui conforme como você salva a role no Firestore (ex.: "admin")
   const isAdmin = currentUser?.role === "admin";
   if (!currentUser) return <Navigate to="/login" replace />;
-  if (!isAdmin) return <Navigate to="/admin" replace />;
+  if (!isAdmin) return <Navigate to="/Admin" replace />;
   return children;
 }

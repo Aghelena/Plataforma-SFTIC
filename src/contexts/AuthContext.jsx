@@ -67,6 +67,7 @@ export function AuthProvider({ children }) {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || undefined,
+        photoURL: user.photoURL || undefined,
       };
 
       try {
@@ -101,6 +102,11 @@ export function AuthProvider({ children }) {
               user.displayName ||
               data.name ||
               prev?.displayName ||
+              undefined,
+            photoURL:
+              data.photoURL ||
+              user.photoURL ||
+              prev?.photoURL ||
               undefined,
           }));
 

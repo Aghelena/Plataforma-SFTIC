@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { store } from "../lib/store.js";
 import { apiFetch } from "../lib/api.js";
+import UserMenu from "../components/UserMenu.jsx";
 
 // ─── utilidades ──────────────────────────────────────────────
 function initials(name) {
@@ -1363,10 +1364,13 @@ export default function Admin() {
             ))}
           </nav>
 
-          <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
-            className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 font-medium text-sm transition">
-            ← Voltar
-          </button>
+          <div className="flex items-center gap-2">
+            <UserMenu />
+            <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
+              className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 font-medium text-sm transition">
+              ← Voltar
+            </button>
+          </div>
         </div>
 
         {/* tabs em telas pequenas */}

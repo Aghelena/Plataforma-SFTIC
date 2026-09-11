@@ -8,6 +8,7 @@ import Signup from "./pages/Signup";
 import Landing from "./pages/Landing";
 import VLibras from "./components/VLibras";
 import Admin from "./pages/Admin";
+import { AdminRoute } from "./components/RouteGuards";
 import Quiz from "./pages/quiz";
 import Memory from "./pages/Memory";
 import Forca from "./pages/Forca";
@@ -15,6 +16,7 @@ import Candy from "./pages/Candy";
 import Intruso from "./pages/Intruso";
 import UserLogin from "./pages/UserLogin";
 import QuebraCabeca from "./pages/QuebraCabeca";
+
 
 export default function App() {
   const location = useLocation();
@@ -38,7 +40,14 @@ export default function App() {
           <Route path="/quebracabeca" element={<QuebraCabeca />} />
           <Route path="/userLogin" element={<UserLogin />} />
 
-          <Route path="/admin" element={<Admin />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <Admin />
+              </AdminRoute>
+            }
+          />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

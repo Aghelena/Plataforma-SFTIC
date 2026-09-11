@@ -393,8 +393,8 @@ export default function Candy() {
     <div className="min-h-screen bg-gray-50">
       <AnimStyles />
 
-      <header className="bg-sky-500 text-white sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-sky-500/30 backdrop-blur-md border-b border-white/20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <button
             onClick={goBack}
             className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold"

@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// Regras de segurança do Firestore da Plataforma Inclusiva.
+//
+// Como publicar: Firebase Console > Firestore Database > Regras,
+// cole o conteúdo deste arquivo e clique em "Publicar". Se preferir
+// pela linha de comando: `firebase deploy --only firestore:rules`
+// (precisa do Firebase CLI configurado com o projeto
+// "plataforma-sfitc").
+//
+// Pré-requisito obrigatório: ative o provedor "Anônimo" em
+// Authentication > Sign-in method. Sem isso, jogadores sem conta
+// (que não passam por /login) não conseguem gravar nada, porque
+// as regras abaixo exigem "estar autenticado" — o app já cuida de
+// criar essa sessão anônima sozinho (ver src/contexts/AuthContext.jsx).
+//
+// Coleções:
+//   - users: perfis do Firebase Auth (só o admin/terapeuta loga aqui
+//     de verdade; é onde mora o campo "role").
+//   - players: jogadores pré-cadastrados pela terapeuta (nome/email).
+//   - gameSessions: uma sessão de jogo por documento.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /players/{playerId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 1);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /gameSessions/{sessionId} {
+      allow create: if isSignedIn();
+      allow get, list: if isAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

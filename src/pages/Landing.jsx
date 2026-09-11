@@ -60,28 +60,42 @@ function GamePill({ title, color, textColor, onClick, available, locked, isNew, 
 // o logo ou o link de Admin.
 function LandingTopbar() {
   return (
-    <header className="sticky top-0 z-40 bg-sky-500 bg-opacity-90 backdrop-blur border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link to="/" tabIndex={-1} className="flex items-center text-white gap-3 group">
+    <header className="sticky top-0 z-40 bg-sky-500/30 backdrop-blur-md border-b border-white/20 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <Link to="/" tabIndex={-1} className="flex items-center gap-3 group">
           <img
             src={logo}
             alt="Logo da Plataforma Inclusiva"
-            className="h-12 w-auto"
+            className="h-12 w-auto drop-shadow-sm transition-transform duration-200 group-hover:scale-105"
             draggable="false"
           />
-          <span className="text-black text-lg font-bold tracking-tight group-hover:opacity-90">
+          <span className="text-black text-lg md:text-xl font-bold tracking-tight group-hover:opacity-90">
             Plataforma Inclusiva
           </span>
         </Link>
 
-        <nav className="flex items-center gap-1" aria-label="Navegação principal">
+        <nav className="flex items-center" aria-label="Navegação principal">
           <Link
             to="/login"
             tabIndex={-1}
-            className="px-3 py-1.5 rounded-md text-black hover:text-white hover:bg-white/10 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="flex items-center justify-center w-8 h-8 rounded-full text-black/25 hover:text-black/70 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/50"
             aria-label="Área administrativa"
           >
-            Admin
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-5 h-5"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
           </Link>
         </nav>
       </div>

@@ -1,6 +1,6 @@
 import { store } from "../lib/store.js";
 import { useEffect, useRef, useState } from "react";
-import { Clock, CheckCircle2 } from "lucide-react";
+import { Clock, CheckCircle2, Volume2 } from "lucide-react";
 import { speak } from "../lib/speech.js";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logosfitc.png";
@@ -410,8 +410,8 @@ export default function Quiz() {
     <div className="min-h-screen bg-slate-50">
       <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
 
-      <header className="bg-sky-500 text-black sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-sky-500/30 backdrop-blur-md border-b border-white/20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <button
             onClick={goBack}
             onFocus={() => announce(
@@ -434,11 +434,11 @@ export default function Quiz() {
               <button
                 onClick={comoJogar}
                 onFocus={() => announce("Botão: Como jogar. Pressione Enter para repetir a pergunta atual e os comandos.")}
-                className="px-3 py-1.5 rounded-md text-black font-bold hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="p-2 rounded-md text-black hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 aria-label="Ouvir como jogar e repetir a pergunta atual"
                 title="Como jogar"
               >
-                🔊
+                <Volume2 size={20} aria-hidden="true" />
               </button>
             )}
           </div>
