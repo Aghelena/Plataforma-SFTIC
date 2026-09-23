@@ -143,7 +143,7 @@ export default function Landing() {
       { title: "Quebra-Cabeça", color: "#732836", textColor: "#FFFFFF", route: "/quebracabeca", novo: true },
       { title: "Candy Crush", color: "#1f0ac2", textColor: "#FFFFFF", route: "/candy" },
       { title: "Ache a Ordem", color: "#28521c", textColor: "#FFFFFF", route: null },
-      { title: "Mémoria Numérica*", color: "#c2ebb7", textColor: "#1E293B", route: null },
+      { title: "Memória Numérica*", color: "#c2ebb7", textColor: "#1E293B", route: null },
       { title: "Corrida Maluca", color: "#076ab8", textColor: "#FFFFFF", route: null },
     ],
     [],
