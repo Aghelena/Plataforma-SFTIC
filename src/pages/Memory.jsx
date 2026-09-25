@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { speak } from "../lib/speech";
+import { getPlayer } from "../lib/player";
+import { apiFetch } from "../lib/api.js";
 
 /* ============================================================
    JOGOS DISPONÍVEIS
@@ -194,13 +196,17 @@ export default function Memory() {
   const selectorHeadingRef = useRef(null);
   const resultRef = useRef(null);
 
-  function announce(msg) {
-    speak(msg);
-    if (liveRef.current) {
-      liveRef.current.textContent = "";
-      setTimeout(() => (liveRef.current.textContent = msg), 20);
-    }
+function announce(msg) {
+  speak(msg);
+  if (liveRef.current) {
+    liveRef.current.textContent = "";
+    setTimeout(() => {
+      // liveRef pode virar null se o componente desmontar (ex.: usuário
+      // navegou pra outra tela) antes desses 20ms terminarem.
+      if (liveRef.current) liveRef.current.textContent = msg;
+    }, 20);
   }
+}
 
   const COMANDOS_TABULEIRO =
     "Use as setas do teclado para navegar entre as cartas, e Enter ou Espaço para virar a carta selecionada.";
@@ -293,6 +299,36 @@ export default function Memory() {
         };
         localStorage.setItem(key, JSON.stringify(newBest));
       } catch {}
+
+      // Envia a sessão para o painel administrativo. A pontuação é a
+      // eficiência da partida: pares existentes / jogadas usadas
+      // (100% = acertou todos os pares de primeira), normalizada em
+      // 0-100 para ficar comparável com os outros jogos no dashboard.
+      const player = getPlayer();
+      if (player?.id) {
+        const totalPairs = currentGame.items.length;
+        const accuracy =
+          moves > 0 ? Math.round(Math.min(1, totalPairs / moves) * 100) : 100;
+        apiFetch("/api/dashboard/session", {
+          method: "POST",
+          body: JSON.stringify({
+            user_id: player.id,
+            game_type: "memoria",
+            duration_seconds: time,
+            score: accuracy,
+            total: 100,
+            metadata: {
+              gameId: currentGame.id,
+              gameTitle: currentGame.title,
+              moves,
+              totalPairs,
+            },
+          }),
+        }).catch((err) =>
+          console.error("Erro ao registrar sessão do Jogo da Memória:", err)
+        );
+      }
+
       announce(`Parabéns! Você concluiu o jogo com ${moves} jogadas.`);
       const t = setTimeout(() => resultRef.current?.focus(), 50);
       return () => clearTimeout(t);
@@ -330,12 +366,16 @@ export default function Memory() {
     setSecond(card);
     setLock(true);
 
-    let secondMessage = "";
-    setMoves((m) => {
-      const next = m + 1;
-      secondMessage = `Segunda carta virada: ${card.label}. Jogada número ${next}.`;
-      return next;
-    });
+    // Antes, a mensagem da segunda carta era montada dentro do callback
+    // do setMoves((m) => {...}) — mas o React não executa esse callback
+    // na hora, só depois, no próximo ciclo de renderização. Isso fazia
+    // o announce() logo abaixo rodar com a mensagem ainda vazia ("").
+    // Corrigido: calculamos o próximo valor direto, usando o "moves"
+    // que já está disponível aqui, sem depender do callback do setState.
+    const nextMoves = moves + 1;
+    setMoves(nextMoves);
+
+    const secondMessage = `Segunda carta virada: ${card.label}. Jogada número ${nextMoves}.`;
     announce(secondMessage);
 
     const isMatch = first.value === card.value;

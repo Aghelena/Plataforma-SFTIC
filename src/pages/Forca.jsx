@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { speak } from "../lib/speech";
+import { getPlayer } from "../lib/player";
+import { apiFetch } from "../lib/api";
 
 /* ============================================================
    BANCO DE PALAVRAS
@@ -180,13 +182,17 @@ export default function Forca() {
   const lockTimeoutRef = useRef(null);
   const appRef = useRef(null);
 
-  function announce(msg) {
-    speak(msg);
-    if (liveRef.current) {
-      liveRef.current.textContent = "";
-      setTimeout(() => { liveRef.current.textContent = msg; }, 20);
-    }
+function announce(msg) {
+  speak(msg);
+  if (liveRef.current) {
+    liveRef.current.textContent = "";
+    setTimeout(() => {
+      // liveRef pode virar null se o componente desmontar (ex.: usuário
+      // navegou pra outra tela) antes desses 20ms terminarem.
+      if (liveRef.current) liveRef.current.textContent = msg;
+    }, 20);
   }
+}
 
   // Anuncia e bloqueia novas ações pelo tempo estimado de fala.
   function announceAndLock(msg) {
@@ -297,6 +303,27 @@ export default function Forca() {
         mistakes: best.mistakes !== undefined ? Math.min(best.mistakes, mistakes) : mistakes,
       }));
     } catch {}
+
+    // Envia a sessão para o painel administrativo. A pontuação é a
+    // porcentagem de "chances" preservadas: venceu sem erros = 100%,
+    // perdeu = 0%, venceu com erros = proporcional às chances usadas.
+    const player = getPlayer();
+    if (player?.id) {
+      const accuracy = won
+        ? Math.round(((MAX_MISTAKES - mistakes) / MAX_MISTAKES) * 100)
+        : 0;
+      apiFetch("/api/dashboard/session", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: player.id,
+          game_type: "forca",
+          duration_seconds: time,
+          score: accuracy,
+          total: 100,
+          metadata: { word, mistakes, won },
+        }),
+      }).catch((err) => console.error("Erro ao registrar sessão da Forca:", err));
+    }
 
     // Leva o foco direto para o resultado, para quem usa leitor de
     // tela não precisar procurar o desfecho na tela.

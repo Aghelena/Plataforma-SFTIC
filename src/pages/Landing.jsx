@@ -13,9 +13,10 @@ function estimateSpeechDuration(text) {
   return Math.max(MIN_LOCK_MS, text.length * MS_PER_CHAR) + EXTRA_BUFFER_MS;
 }
 
-if (typeof window !== "undefined") {
-  clearPlayer();
-}
+// (Removido o clearPlayer() solto que rodava aqui, fora de qualquer
+// função, toda vez que o módulo era carregado — ele apagava o
+// usuário logado a cada refresh da página, mesmo sem o usuário
+// pedir para sair.)
 
 function GamePill({ title, color, textColor, onClick, available, locked, isNew, onFocusAnnounce }) {
   return (
@@ -184,12 +185,23 @@ export default function Landing() {
     return `Abrindo ${game.title}.`;
   }
 
-  // TEMPORÁRIO: login não é mais obrigatório para jogar. O clique
-  // no jogo navega direto, sem checar/exigir um usuário cadastrado.
-  // Pra reverter, basta colocar de volta a checagem de getPlayer()
-  // e o redirecionamento para "/userLogin" quando não houver player.
+  // Login voltou a ser obrigatório para jogar: se não houver um
+  // player salvo, guardamos a rota do jogo clicado em
+  // "nextGameRoute" e mandamos o usuário pro /userLogin — que já
+  // lê esse valor e devolve a pessoa direto pro jogo depois de
+  // entrar com o nome.
   const handleGameClick = (game) => {
     if (lock) return;
+
+    if (game.route && !getPlayer()?.id) {
+      localStorage.setItem("nextGameRoute", game.route);
+      announceAndLock(
+        "Você ainda não está registrado. Levando você para a tela de entrada — digite o nome cadastrado pela sua terapeuta.",
+        () => navigate("/userLogin")
+      );
+      return;
+    }
+
     const msg = getSpeechForGame(game);
 
     announceAndLock(msg, () => {
@@ -235,18 +247,18 @@ export default function Landing() {
               {!player?.id && !player?.name ? (
                 <>
                   <p className="text-black">
-                    Se quiser, registre seu nome para acompanhar seu progresso — mas não é obrigatório para jogar.
+                    Registre seu nome para começar a jogar e acompanhar seu progresso.
                   </p>
-                  {/* <button
+                  <button
                     type="button"
                     onClick={handleUserLoginClick}
-                    onFocus={() => announce("Botão: Registrar nome. Opcional, não é necessário para jogar. Pressione Enter para registrar.")}
+                    onFocus={() => announce("Botão: Registrar nome. Pressione Enter para registrar.")}
                     aria-disabled={lock ? true : undefined}
                     className="px-8 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg shadow-lg transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-700 aria-disabled:opacity-70 aria-disabled:cursor-not-allowed"
-                    aria-label="Registrar nome (opcional)"
+                    aria-label="Registrar nome"
                   >
                     Registrar meu nome
-                  </button> */}
+                  </button>
                 </>
               ) : (
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center gap-2">

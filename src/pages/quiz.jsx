@@ -4,6 +4,8 @@ import { Clock, CheckCircle2, Volume2 } from "lucide-react";
 import { speak } from "../lib/speech.js";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logosfitc.png";
+import { getPlayer } from "../lib/player";
+import { apiFetch } from "../lib/api.js";
 
 /* ============================================================
    QUIZZES PADRÃO
@@ -263,6 +265,7 @@ export default function Quiz() {
   const [feedback, setFeedback] = useState("");
   const [locked, setLocked] = useState(false);
   const advanceTimeoutRef = useRef(null);
+  const [startedAt, setStartedAt] = useState(null);
 
   const [timeAnnouncement, setTimeAnnouncement] = useState("");
   const announcedMarksRef = useRef(new Set());
@@ -274,13 +277,17 @@ export default function Quiz() {
   const goBack = () =>
     (window.history.length > 1 ? navigate(-1) : navigate("/"));
 
-  function announce(msg) {
-    speak(msg);
-    if (liveRef.current) {
-      liveRef.current.textContent = "";
-      setTimeout(() => { liveRef.current.textContent = msg; }, 20);
-    }
+function announce(msg) {
+  speak(msg);
+  if (liveRef.current) {
+    liveRef.current.textContent = "";
+    setTimeout(() => {
+      // liveRef pode virar null se o componente desmontar (ex.: usuário
+      // navegou pra outra tela) antes desses 20ms terminarem.
+      if (liveRef.current) liveRef.current.textContent = msg;
+    }, 20);
   }
+}
 
   const COMANDOS_LISTA =
     "Use Tab para navegar entre os quizzes disponíveis. Cada quiz tem dois botões: Iniciar e Prévia. Pressione Enter para ativar o botão selecionado.";
@@ -350,6 +357,7 @@ export default function Quiz() {
     setCurrent(normalizeQuiz(qz));
     setIdx(0);
     setScore(0);
+    setStartedAt(Date.now());
   }
 
   function comoJogar() {
@@ -384,21 +392,50 @@ export default function Quiz() {
 
   function goToNext(scoreAtThisPoint) {
     if (idx + 1 >= current.questions.length) {
+      const total = current.questions.length;
       const scores = store.get("scores", []);
       scores.push({
         quizId: current.id,
         title: current.title,
         when: new Date().toISOString(),
         score: scoreAtThisPoint,
-        total: current.questions.length,
+        total,
       });
       store.set("scores", scores);
       setResult({
         title: "Resultado",
-        text: `Você acertou ${scoreAtThisPoint} de ${current.questions.length} (${Math.round(
-          (scoreAtThisPoint / current.questions.length) * 100
+        text: `Você acertou ${scoreAtThisPoint} de ${total} (${Math.round(
+          (scoreAtThisPoint / total) * 100
         )}%)`,
       });
+
+      // Envia a sessão para o painel administrativo. A pontuação é
+      // normalizada em porcentagem (0-100) para ficar comparável com
+      // os outros jogos na média de assertividade do dashboard.
+      const player = getPlayer();
+      if (player?.id) {
+        const durationSeconds = startedAt
+          ? Math.round((Date.now() - startedAt) / 1000)
+          : 0;
+        const accuracy = Math.round((scoreAtThisPoint / total) * 100);
+        apiFetch("/api/dashboard/session", {
+          method: "POST",
+          body: JSON.stringify({
+            user_id: player.id,
+            game_type: "quiz",
+            duration_seconds: durationSeconds,
+            score: accuracy,
+            total: 100,
+            metadata: {
+              quizId: current.id,
+              quizTitle: current.title,
+              correct: scoreAtThisPoint,
+              questionsTotal: total,
+            },
+          }),
+        }).catch((err) => console.error("Erro ao registrar sessão do Quiz:", err));
+      }
+
       setCurrent(null);
       setIdx(0);
     } else {
